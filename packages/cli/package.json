@@ -29,7 +29,7 @@
     "tsup": "8.5.1",
     "typescript": "5.9.3",
     "vitest": "4.1.0",
-    "@types/node": "24.12.0",
+    "@types/node": "24.12.2",
     "@types/tar": "7.0.87"
   },
   "publishConfig": {
