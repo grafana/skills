@@ -27,6 +27,9 @@ claude plugin marketplace add grafana/skills
 claude plugin install grafana-plugins@grafana-skills
 claude plugin install grafana-core@grafana-skills
 claude plugin install grafana-cloud@grafana-skills
+claude plugin install grafana-lgtm@grafana-skills
+claude plugin install grafana-app-sdk@grafana-skills
+claude plugin install grafana-k6@grafana-skills
 ```
 
 ### Cursor
@@ -58,22 +61,61 @@ Skills are organized into plugin groups. All skill files live under `skills/<plu
 
 Core Grafana concepts — dashboards, panels, PromQL, and visualization.
 
-*Coming soon.*
+| Skill | Description |
+|-------|-------------|
+| `promql` | Write and validate PromQL queries for Prometheus metrics |
+| `dashboarding` | Create and modify Grafana dashboards including panels, variables, and transformations |
 
 ### grafana-cloud
 
-Grafana Cloud — Loki, Tempo, Pyroscope, and the LGTM observability stack.
+Grafana Cloud — fleet management, cloud integrations, adaptive metrics, and AI agent connectivity.
 
-*Coming soon.*
+| Skill | Description |
+|-------|-------------|
+| `fleet-management` | Install, configure, and manage Grafana Alloy collector fleets |
+| `cloud-integrations` | Set up AWS CloudWatch, Azure Monitor, and Confluent Cloud integrations |
+| `adaptive-metrics` | Reduce Grafana Cloud Metrics costs by managing cardinality |
+| `assistant-mcp` | Connect AI coding agents to Grafana Cloud via the MCP server |
+
+### grafana-lgtm
+
+Open-source LGTM observability stack — Loki, Tempo, Prometheus/Mimir, and Pyroscope.
+
+| Skill | Description |
+|-------|-------------|
+| `loki` | Log aggregation with Grafana Loki — LogQL queries, pipelines, and architecture |
+| `tempo` | Distributed tracing with Grafana Tempo — TraceQL, service graphs, and correlations |
+| `prometheus` | Metrics with Prometheus — PromQL, alerting, recording rules, and Mimir |
+| `pyroscope` | Continuous profiling with Grafana Pyroscope — flame graphs, diff views, and language support |
 
 ### grafana-plugins
 
-Skills for building Grafana plugins — bundle optimisation, code splitting, and plugin development.
+Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework.
 
 | Skill | Description |
 |-------|-------------|
 | `plugin-bundle-size` | Optimise Grafana app plugin bundle size using React.lazy, Suspense, and webpack code splitting |
-| `react-19-plugin-migration` | Migrate a Grafana plugin to React 19 compatibility |
+| `react-19-plugin-migration` | Migrate a Grafana plugin to React 19 compatibility ahead of Grafana 13 |
+| `grafana-scenes` | Build Grafana plugin pages using the @grafana/scenes framework |
+
+### grafana-app-sdk
+
+Skills for building apps on the Grafana App Platform using grafana-app-sdk.
+
+| Skill | Description |
+|-------|-------------|
+| `app-sdk-concepts` | Project init, deployment modes (standalone operator, grafana/apps, frontend-only), and workflow |
+| `cue-kind-definition` | Author CUE kind definitions — schemas, versioning, spec vs status, codegen config |
+| `reconciler-logic` | Implement async reconciler and watcher business logic |
+| `admission-control` | Write validation and mutation admission handlers |
+
+### grafana-k6
+
+Skills for working with k6 open-source load testing.
+
+| Skill | Description |
+|-------|-------------|
+| `k6-docs` | Write or review k6 documentation across TypeScript types, user docs, and release notes |
 
 ---
 
@@ -83,7 +125,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add 
 
 Quick start:
 
-1. Copy `template/SKILL.md` to `skills/<your-skill-name>/SKILL.md`
+1. Copy `template/SKILL.md` to `skills/<plugin-name>/<skill-name>/SKILL.md`
 2. Fill in the frontmatter and content
 3. Run `./scripts/lint-skills.sh skills` to validate
 4. Open a PR
@@ -95,12 +137,14 @@ grafana-skills/
 ├── .claude-plugin/marketplace.json   # Claude Code marketplace manifest
 ├── .cursor-plugin/marketplace.json   # Cursor marketplace manifest (identical)
 ├── .agents-plugin/marketplace.json   # Codex marketplace manifest (identical)
+├── skill-registry.json               # Machine-readable skill manifest
 ├── skills/                           # All skills, grouped by plugin
 │   ├── grafana-core/
 │   ├── grafana-cloud/
-│   └── grafana-plugins/
-│       ├── plugin-bundle-size/SKILL.md
-│       └── react-19-plugin-migration/SKILL.md
+│   ├── grafana-lgtm/
+│   ├── grafana-plugins/
+│   ├── grafana-app-sdk/
+│   └── grafana-k6/
 ├── template/SKILL.md                 # Starter template for new skills
 ├── scripts/lint-skills.sh            # Local skill validation
 └── .github/workflows/                # CI validation
