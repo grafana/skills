@@ -13,7 +13,7 @@ Validate k6 documentation across three repositories in parallel using specialize
 - Automatically confirm `npm start` running in k6-docs at http://localhost:3002, or ask user to start it
 
 **k6 repository on master branch:**
-- Required for testing examples: `cd /path/to/k6 && git checkout master`
+- Required for testing examples: `cd /path/to/k6`, then `git checkout master`
 
 ## Initial Setup
 

@@ -11,7 +11,8 @@ Branch: [BRANCH_NAME]
 Locate k6-DefinitelyTyped repository in current directory or subdirectories.
 
 1. Checkout the branch:
-   cd k6-DefinitelyTyped && git checkout [BRANCH_NAME]
+   cd k6-DefinitelyTyped
+   git checkout [BRANCH_NAME]
 
 2. Check what changed:
    git log main..HEAD --oneline
@@ -46,7 +47,8 @@ Local server: http://localhost:3002
 Locate k6-docs repository in current directory or subdirectories.
 
 1. Checkout the branch:
-   cd k6-docs && git checkout [BRANCH_NAME]
+   cd k6-docs
+   git checkout [BRANCH_NAME]
 
 2. Check what changed:
    git log main..HEAD --oneline
@@ -68,7 +70,8 @@ Locate k6-docs repository in current directory or subdirectories.
    Extract runnable examples (skip <!-- md-k6:skip --> blocks)
    For each example:
    - Write to /tmp/k6-test-<name>-<N>.js
-   - Run: cd k6 && go run . run /tmp/k6-test-<name>-<N>.js
+   - Run: cd k6
+   - Run: go run . run /tmp/k6-test-<name>-<N>.js
    - Report: SUCCESS or FAILURE with output
    - Clean up temp file
 
@@ -97,7 +100,9 @@ Branch: [BRANCH_NAME]
 Locate k6 repository in current directory or subdirectories.
 
 1. Checkout the branch:
-   cd k6 && git fetch origin [BRANCH_NAME] && git checkout [BRANCH_NAME]
+   cd k6
+   git fetch origin [BRANCH_NAME]
+   git checkout [BRANCH_NAME]
 
 2. Check what changed:
    git log origin/[BRANCH_NAME]..HEAD --oneline

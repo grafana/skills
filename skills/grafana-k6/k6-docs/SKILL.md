@@ -1,7 +1,7 @@
 ---
 name: k6-docs
 license: Apache-2.0
-description: Use to write or review k6 documentation across TypeScript types, user docs, and release notes.
+description: Use when writing or reviewing k6 documentation across TypeScript types, user docs, and release notes.
 ---
 
 # k6 Documentation

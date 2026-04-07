@@ -15,6 +15,8 @@
 
 ## Testing
 
-Run: `pnpm install -w --filter "{./types/k6}..." && pnpm test k6`
+Run each command separately:
+1. `pnpm install -w --filter "{./types/k6}..."`
+2. `pnpm test k6`
 
 Pre-existing failures may exist - focus on new types not introducing errors

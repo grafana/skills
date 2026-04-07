@@ -61,21 +61,13 @@ Skills are organized into plugin groups. All skill files live under `skills/<plu
 
 Core Grafana concepts — dashboards, panels, PromQL, and visualization.
 
-| Skill | Description |
-|-------|-------------|
-| `promql` | Write and validate PromQL queries for Prometheus metrics |
-| `dashboarding` | Create and modify Grafana dashboards including panels, variables, and transformations |
+*Coming soon.*
 
 ### grafana-cloud
 
 Grafana Cloud — fleet management, cloud integrations, adaptive metrics, and AI agent connectivity.
 
-| Skill | Description |
-|-------|-------------|
-| `fleet-management` | Install, configure, and manage Grafana Alloy collector fleets |
-| `cloud-integrations` | Set up AWS CloudWatch, Azure Monitor, and Confluent Cloud integrations |
-| `adaptive-metrics` | Reduce Grafana Cloud Metrics costs by managing cardinality |
-| `assistant-mcp` | Connect AI coding agents to Grafana Cloud via the MCP server |
+*Coming soon.*
 
 ### grafana-lgtm
 

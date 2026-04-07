@@ -20,9 +20,10 @@ Use this template for each example test subagent (Bash subagent type):
 Test example <N>: <brief description>
 
 1. Write code to /tmp/k6-test-<name>-<N>.js
-2. Run: cd /path/to/k6 && go run . run /tmp/k6-test-<name>-<N>.js
-3. Report: SUCCESS or FAILURE with exit code and full output
-4. Clean up temp file
+2. Run: cd /path/to/k6
+3. Run: go run . run /tmp/k6-test-<name>-<N>.js
+4. Report: SUCCESS or FAILURE with exit code and full output
+5. Clean up temp file
 ```
 
 ## Fix Subagent Template
