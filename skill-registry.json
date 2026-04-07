@@ -30,50 +30,12 @@
     {
       "name": "grafana-core",
       "description": "Core Grafana concepts — dashboards, panels, PromQL, and visualization",
-      "skills": [
-        {
-          "name": "promql",
-          "description": "Write and validate PromQL queries for Prometheus metrics. Use when building Prometheus queries, understanding query patterns, aggregating metrics, building histogram quantiles, creating recording rules, or diagnosing cardinality issues.",
-          "path": "skills/grafana-core/promql",
-          "tags": ["promql", "prometheus", "metrics", "queries", "recording-rules", "cardinality"]
-        },
-        {
-          "name": "dashboarding",
-          "description": "Create and modify Grafana dashboards including panels, variables, transformations, and annotations. Use when building dashboards, adding panels, configuring template variables, using transformations, or working with dashboard JSON.",
-          "path": "skills/grafana-core/dashboarding",
-          "tags": ["dashboards", "panels", "grafana", "visualization", "variables", "transformations"]
-        }
-      ]
+      "skills": []
     },
     {
       "name": "grafana-cloud",
       "description": "Grafana Cloud — fleet management, cloud integrations, adaptive metrics, and AI agent connectivity",
-      "skills": [
-        {
-          "name": "fleet-management",
-          "description": "Install, configure, and manage Grafana Alloy collector fleets using Fleet Management and remote configuration pipelines. Use when configuring Alloy, managing collector pipelines, deploying remote configurations, troubleshooting collector health, or working with OpAMP.",
-          "path": "skills/grafana-cloud/fleet-management",
-          "tags": ["alloy", "fleet-management", "collectors", "opamp", "remote-config", "pipelines"]
-        },
-        {
-          "name": "cloud-integrations",
-          "description": "Set up and troubleshoot Grafana Cloud integrations for AWS CloudWatch, Azure Monitor, and Confluent Cloud. Use when connecting cloud provider monitoring APIs, setting up hosted exporters, using AWS Firehose, or troubleshooting cloud integrations.",
-          "path": "skills/grafana-cloud/cloud-integrations",
-          "tags": ["aws", "cloudwatch", "azure", "confluent", "integrations", "hosted-exporters", "firehose"]
-        },
-        {
-          "name": "adaptive-metrics",
-          "description": "Reduce Grafana Cloud Metrics costs by managing cardinality with Adaptive Metrics aggregation rules. Use when reducing metrics costs, managing cardinality, creating aggregation rules, analysing unused metrics, or optimising Prometheus storage.",
-          "path": "skills/grafana-cloud/adaptive-metrics",
-          "tags": ["adaptive-metrics", "cardinality", "cost", "aggregation-rules", "series-reduction"]
-        },
-        {
-          "name": "assistant-mcp",
-          "description": "Connect AI coding agents (Claude Code, Cursor, VS Code) to Grafana Cloud via the MCP server. Use when setting up the Grafana MCP server, connecting Claude Code to Grafana, configuring MCP for Cursor, or making AI agents interact with Grafana Cloud APIs.",
-          "path": "skills/grafana-cloud/assistant-mcp",
-          "tags": ["mcp", "claude-code", "cursor", "ai-agent", "grafana-assistant", "a2a"]
-        }
-      ]
+      "skills": []
     },
     {
       "name": "grafana-lgtm",
