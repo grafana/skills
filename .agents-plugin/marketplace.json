@@ -22,22 +22,62 @@
     {
       "name": "grafana-cloud",
       "source": "./",
-      "description": "Skills for Grafana Cloud — Loki, Tempo, Pyroscope, and the LGTM observability stack",
+      "description": "Skills for Grafana Cloud — fleet management, cloud integrations, adaptive metrics, and AI agent connectivity",
       "version": "0.1.0",
       "category": "grafana",
-      "tags": ["grafana-cloud", "loki", "tempo", "pyroscope", "lgtm"],
+      "tags": ["grafana-cloud", "alloy", "adaptive-metrics", "mcp"],
       "skills": []
+    },
+    {
+      "name": "grafana-lgtm",
+      "source": "./",
+      "description": "Skills for the LGTM open-source stack — Loki (logs), Grafana Tempo (traces), Grafana Mimir/Prometheus (metrics), and Grafana Pyroscope (profiles)",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": ["loki", "tempo", "prometheus", "mimir", "pyroscope", "lgtm", "tracing", "logging", "profiling"],
+      "skills": [
+        "./skills/grafana-lgtm/loki",
+        "./skills/grafana-lgtm/tempo",
+        "./skills/grafana-lgtm/prometheus",
+        "./skills/grafana-lgtm/pyroscope"
+      ]
     },
     {
       "name": "grafana-plugins",
       "source": "./",
-      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, and plugin development",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
       "version": "0.1.0",
       "category": "grafana",
-      "tags": ["grafana", "plugins", "bundle-size", "webpack", "code-splitting"],
+      "tags": ["grafana", "plugins", "bundle-size", "webpack", "code-splitting", "scenes"],
       "skills": [
         "./skills/grafana-plugins/plugin-bundle-size",
-        "./skills/grafana-plugins/react-19-plugin-migration"
+        "./skills/grafana-plugins/react-19-plugin-migration",
+        "./skills/grafana-plugins/grafana-scenes"
+      ]
+    },
+    {
+      "name": "grafana-app-sdk",
+      "source": "./",
+      "description": "Skills for building apps on the Grafana App Platform using grafana-app-sdk — CUE schemas, reconcilers, and admission control",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": ["grafana", "app-sdk", "app-platform", "cue", "kubernetes", "reconciler", "admission"],
+      "skills": [
+        "./skills/grafana-app-sdk/app-sdk-concepts",
+        "./skills/grafana-app-sdk/cue-kind-definition",
+        "./skills/grafana-app-sdk/reconciler-logic",
+        "./skills/grafana-app-sdk/admission-control"
+      ]
+    },
+    {
+      "name": "grafana-k6",
+      "source": "./",
+      "description": "Skills for working with k6 — open-source load testing and performance testing documentation",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": ["k6", "load-testing", "performance", "documentation"],
+      "skills": [
+        "./skills/grafana-k6/k6-docs"
       ]
     }
   ]

@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "grafana-plugins",
-      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, and plugin development",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
       "skills": [
         {
           "name": "plugin-bundle-size",
@@ -18,18 +18,134 @@
           "description": "Migrate a Grafana plugin to React 19 compatibility. Use when the user asks to update a plugin for React 19, fix React 19 build errors, or prepare a plugin for Grafana 12.",
           "path": "skills/grafana-plugins/react-19-plugin-migration",
           "tags": ["plugins", "react", "migration", "react-19"]
+        },
+        {
+          "name": "grafana-scenes",
+          "description": "Build Grafana plugin pages using the @grafana/scenes framework. Use when creating scene pages, adding panels, setting up drilldown navigation, defining variables, or working with SceneApp, EmbeddedScene, SceneQueryRunner, or PanelBuilders.",
+          "path": "skills/grafana-plugins/grafana-scenes",
+          "tags": ["plugins", "scenes", "react", "grafana-scenes", "drilldown", "panels"]
         }
       ]
     },
     {
       "name": "grafana-core",
       "description": "Core Grafana concepts — dashboards, panels, PromQL, and visualization",
-      "skills": []
+      "skills": [
+        {
+          "name": "promql",
+          "description": "Write and validate PromQL queries for Prometheus metrics. Use when building Prometheus queries, understanding query patterns, aggregating metrics, building histogram quantiles, creating recording rules, or diagnosing cardinality issues.",
+          "path": "skills/grafana-core/promql",
+          "tags": ["promql", "prometheus", "metrics", "queries", "recording-rules", "cardinality"]
+        },
+        {
+          "name": "dashboarding",
+          "description": "Create and modify Grafana dashboards including panels, variables, transformations, and annotations. Use when building dashboards, adding panels, configuring template variables, using transformations, or working with dashboard JSON.",
+          "path": "skills/grafana-core/dashboarding",
+          "tags": ["dashboards", "panels", "grafana", "visualization", "variables", "transformations"]
+        }
+      ]
     },
     {
       "name": "grafana-cloud",
-      "description": "Grafana Cloud — Loki, Tempo, Pyroscope, and the LGTM observability stack",
-      "skills": []
+      "description": "Grafana Cloud — fleet management, cloud integrations, adaptive metrics, and AI agent connectivity",
+      "skills": [
+        {
+          "name": "fleet-management",
+          "description": "Install, configure, and manage Grafana Alloy collector fleets using Fleet Management and remote configuration pipelines. Use when configuring Alloy, managing collector pipelines, deploying remote configurations, troubleshooting collector health, or working with OpAMP.",
+          "path": "skills/grafana-cloud/fleet-management",
+          "tags": ["alloy", "fleet-management", "collectors", "opamp", "remote-config", "pipelines"]
+        },
+        {
+          "name": "cloud-integrations",
+          "description": "Set up and troubleshoot Grafana Cloud integrations for AWS CloudWatch, Azure Monitor, and Confluent Cloud. Use when connecting cloud provider monitoring APIs, setting up hosted exporters, using AWS Firehose, or troubleshooting cloud integrations.",
+          "path": "skills/grafana-cloud/cloud-integrations",
+          "tags": ["aws", "cloudwatch", "azure", "confluent", "integrations", "hosted-exporters", "firehose"]
+        },
+        {
+          "name": "adaptive-metrics",
+          "description": "Reduce Grafana Cloud Metrics costs by managing cardinality with Adaptive Metrics aggregation rules. Use when reducing metrics costs, managing cardinality, creating aggregation rules, analysing unused metrics, or optimising Prometheus storage.",
+          "path": "skills/grafana-cloud/adaptive-metrics",
+          "tags": ["adaptive-metrics", "cardinality", "cost", "aggregation-rules", "series-reduction"]
+        },
+        {
+          "name": "assistant-mcp",
+          "description": "Connect AI coding agents (Claude Code, Cursor, VS Code) to Grafana Cloud via the MCP server. Use when setting up the Grafana MCP server, connecting Claude Code to Grafana, configuring MCP for Cursor, or making AI agents interact with Grafana Cloud APIs.",
+          "path": "skills/grafana-cloud/assistant-mcp",
+          "tags": ["mcp", "claude-code", "cursor", "ai-agent", "grafana-assistant", "a2a"]
+        }
+      ]
+    },
+    {
+      "name": "grafana-lgtm",
+      "description": "Open-source LGTM observability stack — Loki (logs), Tempo (traces), Prometheus/Mimir (metrics), Pyroscope (profiles)",
+      "skills": [
+        {
+          "name": "loki",
+          "description": "Grafana Loki log aggregation including LogQL queries, log pipelines, structured metadata, and integration patterns. Use when working with Loki, writing LogQL queries, configuring log pipelines, or discussing log aggregation architecture.",
+          "path": "skills/grafana-lgtm/loki",
+          "tags": ["loki", "logs", "logql", "log-aggregation", "logging"]
+        },
+        {
+          "name": "tempo",
+          "description": "Grafana Tempo distributed tracing including TraceQL queries, service graphs, trace correlations, and OpenTelemetry integration. Use when working with Tempo, writing TraceQL queries, configuring trace-to-logs/metrics/profiles, or discussing distributed tracing.",
+          "path": "skills/grafana-lgtm/tempo",
+          "tags": ["tempo", "tracing", "traceql", "opentelemetry", "distributed-tracing", "service-graph"]
+        },
+        {
+          "name": "prometheus",
+          "description": "Prometheus and Grafana Cloud Metrics including PromQL queries, alerting, recording rules, and integration patterns. Use when working with Prometheus, writing PromQL queries beyond basic usage, configuring Alertmanager, or discussing metrics architecture.",
+          "path": "skills/grafana-lgtm/prometheus",
+          "tags": ["prometheus", "mimir", "metrics", "promql", "alerting", "recording-rules"]
+        },
+        {
+          "name": "pyroscope",
+          "description": "Grafana Pyroscope continuous profiling including profile types, flame graphs, diff views, and language support. Use when working with Pyroscope, analyzing flame graphs, optimizing code performance, or integrating profiling with traces.",
+          "path": "skills/grafana-lgtm/pyroscope",
+          "tags": ["pyroscope", "profiling", "flame-graphs", "performance", "continuous-profiling"]
+        }
+      ]
+    },
+    {
+      "name": "grafana-app-sdk",
+      "description": "Grafana App Platform SDK — build schema-centric apps with CUE kinds, reconcilers, and admission control",
+      "skills": [
+        {
+          "name": "app-sdk-concepts",
+          "description": "Grafana App SDK foundational concepts including project initialization, deployment modes (standalone operator, grafana/apps, frontend-only), and the overall development workflow. Use when creating a Grafana app, initializing a grafana-app-sdk project, or asking about deployment modes.",
+          "path": "skills/grafana-app-sdk/app-sdk-concepts",
+          "tags": ["app-sdk", "app-platform", "grafana", "kubernetes", "operator", "cue"]
+        },
+        {
+          "name": "cue-kind-definition",
+          "description": "CUE kind definitions and schemas for grafana-app-sdk projects. Use when defining a kind, adding a CUE kind, writing a kind schema, modeling a resource, adding versions, or asking about CUE kind structure, codegen config, spec vs status, or versioning.",
+          "path": "skills/grafana-app-sdk/cue-kind-definition",
+          "tags": ["app-sdk", "cue", "kinds", "schema", "codegen", "app-platform"]
+        },
+        {
+          "name": "reconciler-logic",
+          "description": "Reconciler and watcher business logic for grafana-app-sdk apps. Use when writing a reconciler, implementing async resource processing, handling create/update/delete events, using TypedReconciler, or writing a controller.",
+          "path": "skills/grafana-app-sdk/reconciler-logic",
+          "tags": ["app-sdk", "reconciler", "watcher", "kubernetes", "controller", "operator"]
+        },
+        {
+          "name": "admission-control",
+          "description": "Validation and mutation admission handlers for grafana-app-sdk apps. Use when writing a validator, adding admission control, implementing a mutating webhook, validating incoming resources, or asking how to validate or mutate resources before persistence.",
+          "path": "skills/grafana-app-sdk/admission-control",
+          "tags": ["app-sdk", "admission", "validation", "mutation", "webhook", "kubernetes"]
+        }
+      ]
+    },
+    {
+      "name": "grafana-k6",
+      "description": "k6 open-source load testing — documentation writing and review",
+      "skills": [
+        {
+          "name": "k6-docs",
+          "description": "Write or review k6 documentation across TypeScript types (k6-DefinitelyTyped), user docs (k6-docs), and release notes. Use when documenting k6 features, reviewing k6 pull requests for documentation, or writing TypeScript type definitions.",
+          "path": "skills/grafana-k6/k6-docs",
+          "tags": ["k6", "load-testing", "documentation", "typescript", "release-notes"]
+        }
+      ]
     }
   ]
 }
