@@ -2,11 +2,12 @@
 name: ml-ai
 license: Apache-2.0
 description: >
-  Grafana Cloud AI and ML features — Grafana Assistant (natural language queries, dashboard generation),
-  Dynamic Alerting (ML-based anomaly detection), Sift (automated incident root cause analysis),
-  Adaptive Metrics (cardinality reduction), and the LLM plugin for custom AI workflows.
-  Use when setting up AI-powered alerting, configuring anomaly detection, using Grafana Assistant,
-  setting up Sift for incident analysis, or integrating LLMs with Grafana.
+  Grafana Cloud AI and ML features — Grafana Assistant (natural language queries, dashboard generation,
+  incident investigations), Dynamic Alerting (ML forecasting and outlier detection), Sift (automated
+  root cause analysis with 8 analysis types), Knowledge Graph (entity discovery and RCA Workbench),
+  and the LLM Plugin (OpenAI/Anthropic/Azure integration). Use when setting up AI-powered alerting,
+  using natural language to query metrics/logs, automating incident investigation, or integrating
+  LLMs with Grafana panels and workflows.
 ---
 
 # Grafana Cloud AI & ML
@@ -15,31 +16,72 @@ description: >
 
 ## Grafana Assistant
 
-Natural language interface for querying data and building dashboards.
+Context-aware LLM sidebar agent (GA). Integrates with your Grafana Cloud stack.
 
 **Capabilities:**
-- Convert natural language to PromQL/LogQL/TraceQL queries
+- Convert natural language to PromQL/LogQL/TraceQL
 - Explain existing queries in plain English
-- Generate dashboard panels from descriptions
-- Suggest visualizations based on your data
-- Answer questions about your metrics and logs
+- Build and edit dashboards from descriptions
+- Investigate incidents (correlate metrics, logs, traces)
+- MCP server integration — connect external tools to Assistant
+- RBAC controls per organization
+- Slack integration for on-call workflows
 
-**Enable:** Grafana Cloud → Settings → AI Features → Enable Grafana Assistant
+**Assistant Investigations** (public preview): Multi-agent autonomous incident analysis mode — launches multiple specialized agents in parallel to investigate different signals.
 
-**In panel editor:** Click the "Assistant" or magic wand icon to get query suggestions.
+**Enable:** Grafana Cloud → Administration → AI & LLM → Enable Grafana Assistant
 
-## Machine Learning: Outlier Detection
+**In panel editor:** Click the magic wand / "Assistant" icon to get query suggestions and explanations.
 
-Detect outliers in metric time series using ML models.
+## Dynamic Alerting
+
+ML-based alerting without static thresholds.
+
+### Forecasting (Prophet model)
+
+Trained on 90 days of history; learns daily and weekly seasonality patterns.
 
 ```bash
-# Create outlier job via API
+# Create forecast job
+curl -X POST https://yourstack.grafana.net/api/plugins/grafana-ml-app/resources/ml/v1/forecast \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "cpu-forecast",
+    "metric": "avg(rate(node_cpu_seconds_total{mode=\"user\"}[5m]))",
+    "datasourceId": 1,
+    "interval": 300,
+    "trainingWindow": "90d",
+    "forecastWindow": "7d",
+    "algorithm": { "name": "prophet", "config": {} }
+  }'
+```
+
+Generated metric pairs for alert rules:
+```promql
+# Predicted value
+ml_forecast{job="cpu-forecast"}
+
+# Confidence bounds
+ml_forecast_lower{job="cpu-forecast"}
+ml_forecast_upper{job="cpu-forecast"}
+
+# Alert: actual > upper bound (anomaly above forecast)
+avg(rate(node_cpu_seconds_total{mode="user"}[5m]))
+  > ml_forecast_upper{job="cpu-forecast"} * 1.1
+```
+
+### Outlier Detection
+
+Detects when one series in a group deviates from its peers.
+
+```bash
 curl -X POST https://yourstack.grafana.net/api/plugins/grafana-ml-app/resources/ml/v1/outlier \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "http-request-rate-outliers",
-    "metric": "sum(rate(http_requests_total[5m])) by (service)",
+    "name": "service-error-outliers",
+    "metric": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (service)",
     "datasourceId": 1,
     "interval": 300,
     "algorithm": {
@@ -50,89 +92,62 @@ curl -X POST https://yourstack.grafana.net/api/plugins/grafana-ml-app/resources/
   }'
 ```
 
-**PromQL for outlier results:**
 ```promql
-# Outlier score (>1 = outlier)
-ml_outlier_score{job="my-outlier-job", service="checkout"}
+# Score > 0: series is an outlier (use in alert rule)
+ml_outlier_score{job="service-error-outliers", service="checkout"}
 ```
 
-## Machine Learning: Forecasting
-
-Predict future metric values using time-series forecasting.
-
-```bash
-# Create forecast job
-curl -X POST https://yourstack.grafana.net/api/plugins/grafana-ml-app/resources/ml/v1/forecast \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "cpu-forecast",
-    "metric": "avg(node_cpu_usage)",
-    "datasourceId": 1,
-    "interval": 300,
-    "trainingWindow": "4w",
-    "forecastWindow": "7d",
-    "algorithm": {
-      "name": "prophet",
-      "config": {}
-    }
-  }'
-```
-
-**PromQL for forecast:**
-```promql
-# Predicted value
-ml_forecast{job="cpu-forecast"}
-
-# Confidence interval
-ml_forecast_lower{job="cpu-forecast"}
-ml_forecast_upper{job="cpu-forecast"}
-```
-
-## Dynamic Alerting (ML-based)
-
-Alert on anomalies without needing static thresholds:
+### Alert Rules using ML
 
 ```yaml
-# Alert rule using ML outlier score
 groups:
   - name: ml-alerts
     rules:
-      - alert: AnomalousErrorRate
-        expr: ml_outlier_score{job="error-rate-outliers"} > 0.9
+      - alert: CPUAboveForecast
+        expr: |
+          avg(rate(node_cpu_seconds_total{mode="user"}[5m]))
+          > ml_forecast_upper{job="cpu-forecast"} * 1.1
         for: 5m
         labels:
           severity: warning
+        annotations:
+          summary: "CPU usage significantly above forecast"
+
+      - alert: ServiceErrorRateAnomaly
+        expr: ml_outlier_score{job="service-error-outliers"} > 0.8
+        for: 5m
+        labels:
+          severity: critical
         annotations:
           summary: "Anomalous error rate on {{ $labels.service }}"
-
-      - alert: TrafficSpike
-        expr: ml_forecast_upper{job="request-forecast"} * 1.2 < sum(rate(http_requests_total[5m]))
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Traffic significantly above forecast"
 ```
 
 ## Sift (Automated Root Cause Analysis)
 
-Sift automatically investigates incidents by correlating metrics, logs, and traces.
+Free for all Grafana Cloud accounts. Automatically investigates incidents by correlating signals.
 
-**Trigger Sift from IRM incident:**
-1. Create/open incident in Grafana IRM
-2. Click "Run Sift" in the investigation panel
-3. Sift queries correlated signals around the incident timeframe
+**8 Analysis Types:**
 
-**Sift investigations include:**
-- Metric anomalies before/during incident
-- Correlated log error spikes
-- Deployment changes (via annotations)
-- SLO burn rate acceleration
+| Analysis | What it checks |
+|----------|---------------|
+| **Error Pattern Logs** | Clusters log errors by pattern, ranks by frequency/recency |
+| **HTTP Error Series** | Finds HTTP 4xx/5xx spikes correlated with incident window |
+| **Kube Crashes** | OOMKills, pod restarts, evictions in K8s |
+| **Log Query** | Custom LogQL query results correlated to incident time |
+| **Metric Query** | Custom PromQL anomalies around incident window |
+| **Noisy Neighbors** | Detects resource contention from co-located services |
+| **Recent Deployments** | Correlates recent Helm/K8s deployments with incident start |
+| **Resource Contention** | CPU throttling, memory pressure, disk I/O saturation |
 
-**API:**
+**Trigger Sift from:**
+- Explore → "Run Sift Investigation"
+- Dashboard panel → "Investigate with Sift"
+- Grafana Incident → "Run Sift" button
+- Command palette (`Cmd+K`) → "Start Sift investigation"
+- OnCall escalation chains → automatic trigger
+
 ```bash
-# Trigger Sift investigation
+# Trigger via API
 curl -X POST https://yourstack.grafana.net/api/plugins/grafana-sift-app/resources/sift/v1/investigations \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
@@ -140,39 +155,34 @@ curl -X POST https://yourstack.grafana.net/api/plugins/grafana-sift-app/resource
     "name": "checkout-latency-spike",
     "start": "2024-02-01T10:00:00Z",
     "end": "2024-02-01T10:30:00Z",
-    "filters": {
-      "service": "checkout",
-      "namespace": "production"
-    }
+    "filters": { "service": "checkout", "namespace": "production" }
   }'
 ```
 
-## Adaptive Metrics
+## Knowledge Graph
 
-Reduce metric cardinality and storage costs by automatically identifying unused metrics.
+Auto-discovers services, pods, nodes, and namespaces from metric labels and trace data. Updates every minute.
 
-```bash
-# Get usage recommendations
-curl https://yourstack.grafana.net/api/plugins/grafana-adaptive-metrics-app/resources/v1/recommendations \
-  -H "Authorization: Bearer <token>"
+**Access:** Observability → Entity graph
+
+**Search syntax:**
+```
+Show Service api-server
+Show all services in namespace production
+Show Pod frontend-abc123
 ```
 
-**Aggregation rules** (drop high-cardinality labels):
-```yaml
-# Adaptive Metrics aggregation rule
-- match_type: regexp
-  match: "^http_request_duration_seconds.*"
-  action: keep
-  match_labels:
-    - method
-    - status
-    - service
-  # Drops: pod, container, instance (high cardinality)
-```
+**RCA Workbench:** Structured troubleshooting interface built on the knowledge graph — traces relationships between entities to identify blast radius and upstream causes.
 
-## LLM Plugin (Custom AI Integration)
+## LLM Plugin
 
-Connect Grafana to OpenAI, Azure OpenAI, or Anthropic for custom workflows.
+Acts as an authenticated proxy for LLM provider API calls from Grafana panels and plugins.
+
+**Supported providers:** OpenAI, Anthropic (Claude), Azure OpenAI, vLLM, Ollama, LiteLLM
+
+**Powered features:** Flame graph interpretation, incident auto-summary, panel title generation, Sift log explanations, natural language panel descriptions.
+
+**Enable:** Administration → Plugins → LLM Plugin → "Enable OpenAI/LLM access via Grafana"
 
 ```yaml
 # provisioning/plugins/llm.yaml
@@ -180,19 +190,33 @@ apiVersion: 1
 apps:
   - type: grafana-llm-app
     jsonData:
+      # OpenAI
       openAIUrl: https://api.openai.com
       openAIModel: gpt-4o
+      # Or Anthropic:
+      # provider: anthropic
+      # anthropicModel: claude-sonnet-4-6
+      # Or Azure OpenAI:
+      # openAIUrl: https://your-resource.openai.azure.com
+      # azureModelMapping: '[["gpt-4o","your-deployment-name"]]'
     secureJsonData:
       openAIKey: sk-your-openai-key
 ```
 
-Use in panel transformations or alerting templates:
-```javascript
-// In Grafana data transformation (via plugin)
-const summary = await grafanaLLM.openai.chatCompletions({
-  model: 'gpt-4o',
-  messages: [
-    { role: 'user', content: `Summarize this metric pattern: ${JSON.stringify(data)}` }
-  ]
-});
+## Adaptive Metrics
+
+Identifies unused metrics to reduce cardinality and storage costs.
+
+```bash
+# Get aggregation recommendations
+curl https://yourstack.grafana.net/api/plugins/grafana-adaptive-metrics-app/resources/v1/recommendations \
+  -H "Authorization: Bearer <token>"
+```
+
+Aggregation rule (drops high-cardinality labels):
+```yaml
+- match: "^http_request_duration_seconds.*"
+  action: keep
+  match_labels: [method, status, service]
+  # Drops: pod, container, instance
 ```
