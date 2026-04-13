@@ -1,5 +1,5 @@
 ---
-name: grafana-k6
+name: k6
 license: Apache-2.0
 description: >
   k6 performance and load testing. Covers writing test scripts in JavaScript/TypeScript, all test types

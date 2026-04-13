@@ -1,5 +1,5 @@
 ---
-name: grafana-tempo
+name: tempo
 license: Apache-2.0
 description: >
   Grafana Tempo distributed tracing backend. Covers TraceQL query language (span selectors,

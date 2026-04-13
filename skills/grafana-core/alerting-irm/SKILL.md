@@ -1,5 +1,5 @@
 ---
-name: grafana-alerting-irm
+name: alerting-irm
 license: Apache-2.0
 description: >
   Grafana Alerting, Incident Response Management (IRM), and SLOs. Covers Grafana-managed and data source-managed

@@ -1,5 +1,5 @@
 ---
-name: grafana-pyroscope
+name: pyroscope
 license: Apache-2.0
 description: >
   Grafana Pyroscope continuous profiling platform. Covers instrumentation of Go/Java/Python/Ruby/Node.js/

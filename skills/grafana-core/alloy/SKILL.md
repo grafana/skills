@@ -1,5 +1,5 @@
 ---
-name: grafana-alloy
+name: alloy
 license: Apache-2.0
 description: >
   Grafana Alloy OpenTelemetry collector and telemetry pipeline configuration. Covers the Alloy configuration

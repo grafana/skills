@@ -1,5 +1,5 @@
 ---
-name: grafana-cloud-app-observability
+name: app-observability
 license: Apache-2.0
 description: >
   Grafana Cloud Application Observability (APM), Frontend Observability (RUM/Faro), and AI Observability.
@@ -433,41 +433,6 @@ Once metrics arrive, Grafana Cloud auto-populates five dashboards:
 3. Set the environment variables
 4. `pip install openlit` and call `openlit.init()` at app startup
 5. Deploy - dashboards populate automatically within minutes
-
----
-
-## Continuous Profiling (Pyroscope)
-
-Pyroscope integrates with Application Observability for profile-to-trace correlation.
-
-### Alloy Profiling Configuration
-
-```river
-pyroscope.scrape "app" {
-  targets = [{ __address__ = "localhost:6060", service_name = "my-api" }]
-  profiling_config {
-    profile.goroutine { enabled = true }
-    profile.memory    { enabled = true }
-    profile.mutex     { enabled = true }
-    profile.block     { enabled = true }
-  }
-  forward_to = [pyroscope.write.grafana_cloud.receiver]
-}
-
-pyroscope.write "grafana_cloud" {
-  endpoint {
-    url = env("PYROSCOPE_SERVER_ADDRESS")
-    basic_auth {
-      username = env("PYROSCOPE_BASIC_AUTH_USER")
-      password = env("PYROSCOPE_BASIC_AUTH_PASSWORD")
-    }
-  }
-}
-```
-
-### Traces to Profiles Correlation
-
-When both Tempo traces and Pyroscope profiles use the same `service.name`, Grafana automatically links them. In Tempo trace view, a "Profiles" button appears to show the CPU/memory profile for that exact time window.
 
 ---
 

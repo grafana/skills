@@ -1,5 +1,5 @@
 ---
-name: grafana-loki
+name: loki
 license: Apache-2.0
 description: >
   Grafana Loki log aggregation and LogQL query language. Covers LogQL syntax (log queries, metric queries,

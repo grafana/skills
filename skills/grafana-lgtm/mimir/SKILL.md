@@ -1,5 +1,5 @@
 ---
-name: grafana-mimir
+name: mimir
 license: Apache-2.0
 description: >
   Grafana Mimir scalable long-term metrics storage. Covers architecture (distributor/ingester/compactor/querier/
