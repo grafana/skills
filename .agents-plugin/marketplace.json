@@ -6,27 +6,45 @@
   },
   "metadata": {
     "description": "Public skills for working with Grafana, Prometheus, Loki, Tempo, and the broader LGTM stack",
-    "version": "0.1.0",
-    "documentation": "This marketplace manifest must remain identical to the plugin manifests in .claude-plugin/ and .cursor-plugin/. Keep all three manifests in sync."
+    "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "grafana-core",
       "source": "./",
-      "description": "Skills for core Grafana concepts — dashboards, panels, PromQL, and visualization",
+      "description": "Skills for core Grafana concepts — dashboards, panels, PromQL, visualization, alerting, Alloy, Beyla, and OpenTelemetry",
       "version": "0.1.0",
       "category": "grafana",
-      "tags": ["grafana", "dashboards", "promql", "panels"],
-      "skills": []
+      "tags": ["grafana", "dashboards", "promql", "panels", "alloy", "beyla", "opentelemetry", "alerting"],
+      "skills": [
+        "./skills/grafana-core/dashboarding",
+        "./skills/grafana-core/promql",
+        "./skills/grafana-core/grafana-oss",
+        "./skills/grafana-core/alloy",
+        "./skills/grafana-core/beyla",
+        "./skills/grafana-core/opentelemetry",
+        "./skills/grafana-core/alerting-irm"
+      ]
     },
     {
       "name": "grafana-cloud",
       "source": "./",
-      "description": "Skills for Grafana Cloud — fleet management, cloud integrations, adaptive metrics, and AI agent connectivity",
+      "description": "Skills for Grafana Cloud — fleet management, cloud integrations, adaptive metrics, AI/ML, infrastructure monitoring, and account administration",
       "version": "0.1.0",
       "category": "grafana",
-      "tags": ["grafana-cloud", "alloy", "adaptive-metrics", "mcp"],
-      "skills": []
+      "tags": ["grafana-cloud", "alloy", "adaptive-metrics", "mcp", "infrastructure", "kubernetes", "synthetic-monitoring"],
+      "skills": [
+        "./skills/grafana-cloud/adaptive-metrics",
+        "./skills/grafana-cloud/assistant-mcp",
+        "./skills/grafana-cloud/cloud-integrations",
+        "./skills/grafana-cloud/fleet-management",
+        "./skills/grafana-cloud/send-data",
+        "./skills/grafana-cloud/admin",
+        "./skills/grafana-cloud/infrastructure",
+        "./skills/grafana-cloud/testing",
+        "./skills/grafana-cloud/ml-ai",
+        "./skills/grafana-cloud/app-observability"
+      ]
     },
     {
       "name": "grafana-lgtm",
@@ -39,7 +57,8 @@
         "./skills/grafana-lgtm/loki",
         "./skills/grafana-lgtm/tempo",
         "./skills/grafana-lgtm/prometheus",
-        "./skills/grafana-lgtm/pyroscope"
+        "./skills/grafana-lgtm/pyroscope",
+        "./skills/grafana-lgtm/mimir"
       ]
     },
     {
@@ -72,12 +91,13 @@
     {
       "name": "grafana-k6",
       "source": "./",
-      "description": "Skills for working with k6 — open-source load testing and performance testing documentation",
+      "description": "Skills for working with k6 — open-source load testing and performance testing",
       "version": "0.1.0",
       "category": "grafana",
-      "tags": ["k6", "load-testing", "performance", "documentation"],
+      "tags": ["k6", "load-testing", "performance", "testing"],
       "skills": [
-        "./skills/grafana-k6/k6-docs"
+        "./skills/grafana-k6/k6-docs",
+        "./skills/grafana-k6/k6"
       ]
     }
   ]

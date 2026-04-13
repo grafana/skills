@@ -1,166 +1,476 @@
 ---
-name: tempo
+name: grafana-tempo
 license: Apache-2.0
 description: >
-  Grafana Tempo distributed tracing overview including TraceQL, service graphs, drilldown capabilities
-  (trace-to-logs, trace-to-metrics, trace-to-profiles, exemplars), and OpenTelemetry integration.
-  Use when working with Tempo, writing TraceQL queries, configuring trace correlations, or discussing
-  distributed tracing architecture and best practices.
+  Grafana Tempo distributed tracing backend. Covers TraceQL query language (span selectors,
+  attribute scopes, pipeline operators, structural operators, metrics functions), trace ingestion
+  via OTLP/Jaeger/Zipkin, Tempo architecture (distributor/ingester/compactor/querier/metrics-generator),
+  full configuration reference with YAML, metrics-from-traces (span metrics, service graphs,
+  TraceQL metrics), deployment modes (monolithic/microservices/Helm/Kubernetes), multi-tenancy,
+  performance tuning, caching, and HTTP API. Use when working with distributed traces, writing
+  TraceQL queries, deploying Tempo, configuring trace pipelines, or setting up Grafana-Tempo
+  integrations (traces-to-logs, traces-to-metrics, traces-to-profiles).
 ---
 
-# Distributed Tracing with Grafana Tempo
+# Grafana Tempo - Distributed Tracing Backend
 
-## Value Proposition
+Grafana Tempo is an open-source, high-scale distributed tracing backend. It is:
+- **Cost-efficient**: only requires object storage (S3, GCS, Azure) to operate
+- **Deeply integrated**: with Grafana, Mimir, Prometheus, Loki, and Pyroscope
+- **Protocol-agnostic**: accepts OTLP, Jaeger, Zipkin, OpenCensus, Kafka
 
-Cost-efficient, high-scale distributed tracing backend with end-to-end visibility into request flows.
-Zero-index architecture makes 100% trace sampling economically viable while enabling seamless correlation
-between traces, metrics, logs, and profiles.
+## Quick Reference Links
 
-**Key Differentiators**: Zero-index storage, TraceQL query language, native OTLP support, exemplars
-integration, automatic service graph generation.
+- [TraceQL Language Reference](./references/traceql.md) - query syntax, operators, examples, metrics functions
+- [Configuration Reference](./references/configuration.md) - all YAML config blocks with defaults
+- [Architecture and Operations](./references/architecture-and-operations.md) - components, deployment, tuning
+- [Metrics from Traces](./references/metrics-from-traces.md) - span metrics, service graphs, TraceQL metrics
+- [API Reference](./references/api.md) - HTTP endpoints, ingestion, search, metrics queries
 
-## TraceQL Quick Reference
+---
 
-### Basic Queries
+## What is Distributed Tracing?
+
+A **trace** represents the lifecycle of a request as it passes through multiple services. It consists of:
+- **Spans**: Individual units of work with start time, duration, attributes, and status
+- **Trace ID**: Shared identifier across all spans in a request
+- **Parent-child relationships**: Spans form a tree showing causality
+
+Traces enable:
+- Root cause analysis for service outages
+- Understanding service dependencies
+- Identifying latency bottlenecks
+- Correlating events across microservices
+
+---
+
+## Architecture Overview
+
+```
+Applications
+    |
+    | (OTLP 4317/4318, Jaeger 14250/14268, Zipkin 9411)
+    v
+[Distributor]  ----  hashes traceID, routes to N ingesters
+    |
+    |---> [Ingester]  (WAL + Parquet block assembly, flush to object store)
+    |
+    |---> [Metrics Generator]  (optional: derives RED metrics -> Prometheus)
+    
+Query path:
+Grafana  -->  [Query Frontend]  (shards queries)
+                    |
+              [Querier pool]
+              /           \
+    [Ingesters]     [Object Storage]
+    (recent)        (historical blocks)
+```
+
+### Core Components
+
+| Component | Role | Default Ports |
+|-----------|------|---------------|
+| Distributor | Receives spans, routes by traceID hash | 4317 (gRPC), 4318 (HTTP) |
+| Ingester | Buffers in memory, flushes to storage | - |
+| Query Frontend | Query orchestrator, shards across queriers | 3200 (HTTP) |
+| Querier | Executes search jobs against storage | - |
+| Compactor | Merges blocks, enforces retention | - |
+| Metrics Generator | Derives RED metrics from spans | - |
+
+---
+
+## TraceQL - The Query Language
+
+TraceQL queries filter traces by span properties. Structure: `{ filters } | pipeline`
+
+### Attribute Scopes
 
 ```traceql
-# Find spans from a service
-{ resource.service.name = "checkout" }
+span.http.status_code        # span-level attribute
+resource.service.name        # resource attribute (from SDK)
+name                         # intrinsic: span operation name
+status                       # intrinsic: ok | error | unset
+duration                     # intrinsic: span duration
+kind                         # intrinsic: server | client | producer | consumer | internal
+traceDuration                # intrinsic: entire trace duration
+rootServiceName              # intrinsic: service of the root span
+rootName                     # intrinsic: operation name of the root span
+```
 
-# Slow requests
-{ duration > 5s }
+### Operators
 
-# Errors
+```
+=   !=   >   <   >=   <=      # comparison
+=~  !~                         # regex match (Go RE2)
+&&  ||  !                      # logical
+```
+
+### Essential Examples
+
+```traceql
+# All errors
 { status = error }
 
-# HTTP errors
+# Slow requests from a service
+{ resource.service.name = "frontend" && duration > 1s }
+
+# HTTP 5xx errors
 { span.http.status_code >= 500 }
 
-# Combined
-{ resource.service.name = "api" && duration > 1s && status = error }
+# Count errors per trace (more than 2)
+{ status = error } | count() >= 2
 
-# Regex
-{ span.http.url =~ "/api/v2/.*" }
+# Group by service
+{ status = error } | by(resource.service.name)
+
+# P99 latency grouping
+{ kind = server } | avg(duration) by(resource.service.name)
+
+# Select specific fields
+{ status = error } | select(span.http.url, duration, resource.service.name)
+
+# Structural: server span with downstream error
+{ kind = server } >> { status = error }
+
+# Both conditions present (any relationship)
+{ span.db.system = "redis" } && { span.db.system = "postgresql" }
+
+# Find most recent (deterministic)
+{ resource.service.name = "api" } with (most_recent=true)
 ```
 
-### Structural Queries
+### TraceQL Metrics
 
 ```traceql
-# Frontend with downstream errors
-{ resource.service.name = "frontend" } >> { status = error }
+# Error rate per service
+{ status = error } | rate() by (resource.service.name)
 
-# Service A calls service B
-{ resource.service.name = "A" } > { resource.service.name = "B" }
+# P99 latency
+{ kind = server } | quantile_over_time(duration, .99) by (resource.service.name)
+
+# With exemplars
+{ kind = server } | quantile_over_time(duration, .99) by (resource.service.name) with (exemplars=true)
 ```
 
-### Aggregations
+---
 
-```traceql
-# Traces with >10 DB calls
-{ span.db.system = "postgresql" } | count() > 10
+## Deployment
 
-# Average DB call > 10ms
-{ span.db.system = "postgresql" } | avg(duration) > 10ms
+### Quick Start (Docker Compose)
 
-# Group by service, count errors
-{ status = error } | by(resource.service.name) | count() > 5
+```bash
+git clone https://github.com/grafana/tempo.git
+cd tempo/example/docker-compose/local
+mkdir tempo-data
+docker compose up -d
+# Grafana at http://localhost:3000, Tempo API at http://localhost:3200
 ```
 
-## Drilldown Capabilities
-
-### Trace-to-Logs
-
-Clickable links from spans to Loki log entries via trace/span ID correlation.
+### Minimal Single-Node Config
 
 ```yaml
-jsonData:
-  tracesToLogs:
-    datasourceUid: "loki-uid"
-    spanStartTimeShift: "-5s"
-    spanEndTimeShift: "+1m"
-    filterByTraceID: true
-    tags:
-      - key: "service.name"
-        value: "service"
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  lifecycler:
+    ring:
+      replication_factor: 1
+
+compactor:
+  compaction:
+    block_retention: 336h    # 14 days
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+
+memberlist:
+  abort_if_cluster_join_fails: false
+  join_members: []
 ```
 
-### Trace-to-Metrics
-
-Links spans to Prometheus metric time series for resource correlation.
+### Production (S3 + Microservices)
 
 ```yaml
-jsonData:
-  tracesToMetrics:
-    datasourceUid: "prometheus-uid"
-    tags:
-      - key: "service.name"
-        value: "service"
-    queries:
-      - name: "Request Rate"
-        query: "rate(requests_total{${__tags}}[5m])"
-      - name: "Error Rate"
-        query: 'rate(requests_total{${__tags},status=~"5.."}[5m])'
+storage:
+  trace:
+    backend: s3
+    s3:
+      bucket: tempo-traces
+      endpoint: s3.amazonaws.com
+      region: us-east-1
+      # Use IRSA/IAM roles (preferred over access keys)
+
+compactor:
+  compaction:
+    block_retention: 336h    # Override per-tenant in overrides section
+
+memberlist:
+  join_members:
+    - tempo-1:7946
+    - tempo-2:7946
+    - tempo-3:7946
+
+ingester:
+  lifecycler:
+    ring:
+      replication_factor: 3
 ```
 
-### Trace-to-Profiles
+### Kubernetes (Helm)
 
-Connects spans to Pyroscope profiling data for CPU/memory analysis.
+```bash
+helm repo add grafana https://grafana.github.io/helm-charts
+helm install tempo grafana/tempo-distributed \
+  --set storage.trace.backend=s3 \
+  --set storage.trace.s3.bucket=my-tempo-bucket \
+  --set storage.trace.s3.region=us-east-1
+```
+
+---
+
+## Sending Traces to Tempo
+
+### Via Grafana Alloy (Recommended)
+
+```alloy
+// alloy.river
+otelcol.receiver.otlp "default" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  http { endpoint = "0.0.0.0:4318" }
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls { insecure = true }
+  }
+}
+```
+
+### Via OpenTelemetry Collector
 
 ```yaml
-jsonData:
-  tracesToProfiles:
-    datasourceUid: "pyroscope-uid"
-    tags:
-      - key: "service.name"
-        value: "service_name"
-    profileTypeId: "process_cpu:cpu:nanoseconds:cpu:nanoseconds"
+exporters:
+  otlp:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    # For multi-tenancy:
+    headers:
+      x-scope-orgid: my-tenant
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp]
 ```
 
-### Exemplars (Metrics-to-Traces)
+### Direct HTTP (OTLP)
 
-Trace IDs stored alongside metric samples enable jumping from metric graphs to specific traces.
-Tempo's metrics-generator creates exemplars automatically. Stars on time series panels link to traces.
+```bash
+curl -X POST -H 'Content-Type: application/json' \
+  http://localhost:4318/v1/traces \
+  -d '{"resourceSpans": [{"resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "my-service"}}]}, "scopeSpans": [{"spans": [{"traceId": "5B8EFFF798038103D269B633813FC700", "spanId": "EEE19B7EC3C1B100", "name": "my-op", "startTimeUnixNano": 1689969302000000000, "endTimeUnixNano": 1689969302500000000, "kind": 2}]}]}]}'
+```
 
-## Service Graphs
+---
 
-Tempo's metrics-generator derives RED metrics (Rate, Error, Duration) from traces automatically.
+## Metrics from Traces
 
-**Generated metrics**:
-- `traces_service_graph_request_total{client, server}` — request count
-- `traces_service_graph_request_failed_total` — failed requests
-- `traces_service_graph_request_server_seconds` — duration histogram
-- `traces_spanmetrics_calls_total{service, span_name}` — span count
-- `traces_spanmetrics_duration_seconds` — span duration histogram
+### Enable Metrics Generator
 
-## OpenTelemetry Semantic Conventions
+```yaml
+metrics_generator:
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
 
-| Category | Key Attributes |
-|----------|---------------|
-| **HTTP** | `http.method`, `http.status_code`, `http.url`, `http.route` |
-| **Database** | `db.system`, `db.name`, `db.statement`, `db.operation` |
-| **Service** | `service.name`, `service.namespace`, `service.version` |
-| **K8s** | `k8s.namespace.name`, `k8s.pod.name`, `k8s.deployment.name` |
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics, local-blocks]
+```
 
-## Architecture
+### Processor Types
 
-- **Distributor**: Accepts spans (OTLP, Jaeger, Zipkin), routes to ingesters
-- **Ingester**: Indexes and stores spans, flushes Parquet blocks to object storage
-- **Metrics-Generator**: Derives RED metrics, service graphs, exemplars
-- **Querier**: Queries ingesters + object storage, uses bloom filters
-- **Compactor**: Compresses, deduplicates, enforces retention
+**Service Graphs**: Visualizes service topology and latency
+- Output: `traces_service_graph_request_total`, `traces_service_graph_request_failed_total`, duration histograms
+
+**Span Metrics**: RED metrics per span
+- Output: `traces_spanmetrics_calls_total`, `traces_spanmetrics_duration_seconds_*`
+- Labels: service, span_name, span_kind, status_code + custom dimensions
+
+**Local Blocks**: Enables TraceQL metrics queries on recent data
+
+---
+
+## Multi-Tenancy
+
+```yaml
+# Enable in Tempo config
+multitenancy_enabled: true
+```
+
+All requests require `X-Scope-OrgID` header.
+
+```yaml
+# OpenTelemetry Collector
+exporters:
+  otlp:
+    headers:
+      x-scope-orgid: tenant-id
+
+# Grafana datasource
+jsonData:
+  httpHeaderName1: "X-Scope-OrgID"
+secureJsonData:
+  httpHeaderValue1: "tenant-id"
+```
+
+---
+
+## Grafana Integration
+
+### Data Source Configuration
+
+```yaml
+datasources:
+  - name: Tempo
+    type: tempo
+    url: http://tempo:3200
+    jsonData:
+      # Link traces to logs
+      tracesToLogsV2:
+        datasourceUid: loki-uid
+        filterByTraceID: true
+        tags: [{key: "service.name", value: "app"}]
+
+      # Link traces to metrics
+      tracesToMetrics:
+        datasourceUid: prometheus-uid
+        tags: [{key: "service.name", value: "service"}]
+        queries:
+          - name: Error Rate
+            query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags, status_code="STATUS_CODE_ERROR"}[5m]))'
+
+      # Link traces to profiles (Pyroscope)
+      tracesToProfiles:
+        datasourceUid: pyroscope-uid
+        tags: [{key: "service.name", value: "service_name"}]
+
+      # Service map from span metrics
+      serviceMap:
+        datasourceUid: prometheus-uid
+```
+
+### Key Grafana Features
+
+- **Explore > Tempo**: Search by TraceQL, trace ID, or tag filters
+- **Service Graph tab**: Visual service topology with RED metrics
+- **Traces Drilldown**: `/a/grafana-exploretraces-app` - no TraceQL required
+- **Exemplars**: Click metric spike -> jump directly to responsible trace
+- **Derived fields in Loki**: Click trace ID in log -> jump to trace in Tempo
+
+---
+
+## API Quick Reference
+
+```bash
+# Search traces
+GET /api/search?q={status=error}&limit=20&start=<unix>&end=<unix>
+
+# Get trace by ID
+GET /api/traces/<traceID>
+GET /api/v2/traces/<traceID>
+
+# List all tag names
+GET /api/search/tags
+
+# Get values for a tag
+GET /api/search/tag/service.name/values
+
+# TraceQL metrics (time series)
+GET /api/metrics/query_range?q={status=error}|rate()&start=...&end=...&step=60
+
+# Health check
+GET /ready
+```
+
+---
+
+## Performance Tuning Summary
+
+| Problem | Solution |
+|---------|----------|
+| Slow searches | Scale queriers horizontally; scale compactors to reduce block count |
+| High memory on queriers | Reduce `max_concurrent_queries`; lower `target_bytes_per_job` |
+| High memory on ingesters | Reduce `max_block_bytes`; lower per-tenant trace limits |
+| Slow attribute queries | Add dedicated Parquet columns for frequent attributes |
+| Cache miss rate high | Increase cache size; tune `cache_min_compaction_level` |
+| Rate limited (429) | Raise `max_outstanding_per_tenant` or increase per-tenant ingestion limits |
+| Memcached connection errors | Increase memcached connection limit (`-c 4096`) |
+
+---
 
 ## Best Practices
 
-- **Instrumentation**: Create spans for work > 1ms, use semantic conventions, limit attributes
-- **Sampling**: Start with 100% if costs allow; use tail-based sampling to keep all errors
-- **Query performance**: Use scoped attributes (`resource.service.name` vs `.service.name`)
-- **Auto-instrumentation**: Start with Grafana Beyla (eBPF) or OTel auto-instrumentation, add manual spans for business logic
+### Instrumentation
+- Follow **OpenTelemetry semantic conventions** for attribute names
+- Use `span.` prefix for span attributes, `resource.` for process context
+- Keep attributes meaningful - avoid metrics/logs as span attributes
+- Limit attributes to max ~128 per span (OTel default)
+- Use **span linking** for batch processing (instead of huge fan-out traces)
+- Create spans for: external calls, significant loops, operations with variable latency
+- Avoid creating spans for every function call
 
-## Resources
+### Deployment
+- Use **replication factor 3** for production HA
+- **Object storage** required for distributed deployments (not local)
+- Enable **dedicated attribute columns** for your most-queried attributes
+- Set appropriate **block retention** per tenant via overrides
+- Monitor `tempo_ingester_live_traces` to detect memory pressure early
 
-- [Tempo Docs](https://grafana.com/docs/tempo/latest/)
-- [TraceQL Reference](https://grafana.com/docs/tempo/latest/traceql/)
-- [Traces Drilldown App](https://github.com/grafana/traces-drilldown)
-- [Service Graphs](https://grafana.com/docs/tempo/latest/metrics-generator/service_graphs/)
-- [Grafana Beyla](https://grafana.com/docs/beyla/)
-- [OpenTelemetry Docs](https://opentelemetry.io/docs/)
+### Querying
+- Use **time bounds** (`start`/`end`) to limit search scope
+- Use **structural operators** for root cause analysis patterns
+- Prefer `attribute != nil` for existence checks
+- Use `with (most_recent=true)` when you need deterministic recent results
+- Scope tag discovery with a TraceQL query to reduce noise
+
+---
+
+## Ports Reference
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| 3200 | HTTP | Tempo API (queries, search, health) |
+| 9095 | gRPC | Internal component communication |
+| 4317 | gRPC | OTLP trace ingestion |
+| 4318 | HTTP | OTLP trace ingestion |
+| 14268 | HTTP | Jaeger Thrift HTTP ingestion |
+| 14250 | gRPC | Jaeger gRPC ingestion |
+| 6831 | UDP | Jaeger Thrift Compact |
+| 6832 | UDP | Jaeger Thrift Binary |
+| 9411 | HTTP | Zipkin ingestion |
+| 7946 | TCP/UDP | Memberlist gossip |
