@@ -27,13 +27,20 @@ a restart.
 ## Step 1: Check the current state
 
 ```bash
+BASE=https://fleet-management-prod-us-east-0.grafana.net
+TOKEN=<STACK_ID>:<API_TOKEN>
+
 # List all registered collectors and their health status
-curl -s -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/collectors" | jq '.collectors[] | {id, name, remoteConfigStatus}'
+curl -s -X POST "$BASE/collector.v1.CollectorService/ListCollectors" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq '.collectors[] | {id, name, remoteConfigStatus}'
 
 # List all pipelines
-curl -s -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/pipelines" | jq '.pipelines[] | {id, name, enabled}'
+curl -s -X POST "$BASE/pipeline.v1.PipelineService/ListPipelines" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
 In the Grafana Cloud UI: **Connections > Collector > Fleet Management > Collector Inventory**.
@@ -84,15 +91,16 @@ prometheus.remote_write "grafana_cloud" {
 ## Step 3: Create a pipeline
 
 ```bash
-# Create a pipeline via API
-curl -s -X POST \
-  -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
+# Create a pipeline via API (contents is plain text Alloy config, not base64)
+curl -s -X POST "$BASE/pipeline.v1.PipelineService/CreatePipeline" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/pipelines" \
   -d '{
     "name": "k8s-metrics",
-    "contents": "<base64-encoded Alloy config>",
-    "enabled": true
+    "contents": "prometheus.scrape \"default\" {\n  targets = []\n  forward_to = []\n}",
+    "matchers": [
+      {"name": "env", "value": "production", "type": "EQUAL"}
+    ]
   }'
 ```
 
@@ -100,18 +108,6 @@ In the UI: **Fleet Management > Remote Configuration > Create pipeline**. The wi
 1. Start from a template (Kubernetes, host metrics, logs, traces, profiles)
 2. Duplicate an existing pipeline
 3. Write from scratch with the inline editor
-
-**Validation:** The UI validates pipeline YAML syntax before saving. Via API, use the validation endpoint:
-
-```bash
-curl -s -X POST \
-  -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
-  -H "Content-Type: application/json" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/pipelines/validate" \
-  -d '{"contents": "<base64-encoded Alloy config>"}'
-```
-
-Returns `{"valid": true}` or a list of syntax errors with line numbers.
 
 ---
 
@@ -140,17 +136,23 @@ This assigns the pipeline to any collector with both `env=production` AND `team=
 | `=~` | `region=~"us-.*"` | Regex match |
 | `!~` | `region!~"eu-.*"` | Regex not match |
 
-**Apply matchers to a pipeline:**
+**Apply matchers when creating or updating a pipeline:**
 
 ```bash
-curl -s -X PUT \
-  -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
+# Matchers are set in CreatePipeline or UpdatePipeline
+curl -s -X POST "$BASE/pipeline.v1.PipelineService/UpdatePipeline" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/pipelines/<PIPELINE_ID>" \
   -d '{
-    "matchers": ["env=\"production\"", "team=\"platform\""]
+    "id": "<PIPELINE_ID>",
+    "matchers": [
+      {"name": "env",  "value": "production", "type": "EQUAL"},
+      {"name": "team", "value": "platform",   "type": "EQUAL"}
+    ]
   }'
 ```
+
+Matcher `type` values: `EQUAL`, `NOT_EQUAL`, `REGEX`, `NOT_REGEX`
 
 A pipeline with no matchers is saved but deployed to zero collectors.
 
@@ -162,16 +164,16 @@ Attributes are the labels that matchers target. Set them from the UI (Collector 
 collector > Edit attributes) or via API:
 
 ```bash
-curl -s -X PUT \
-  -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
+curl -s -X POST "$BASE/collector.v1.CollectorService/UpdateCollector" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/collectors/<COLLECTOR_ID>/attributes" \
   -d '{
-    "attributes": {
-      "env": "production",
-      "team": "platform",
-      "region": "us-east-1"
-    }
+    "id": "<COLLECTOR_ID>",
+    "attributes": [
+      {"name": "env",    "value": "production"},
+      {"name": "team",   "value": "platform"},
+      {"name": "region", "value": "us-east-1"}
+    ]
   }'
 ```
 
@@ -246,9 +248,10 @@ alloy:
 
 ```bash
 # List collectors with FAILED status
-curl -s -H "Authorization: Bearer <STACK_ID>:<API_TOKEN>" \
-  "https://<FLEET_MANAGEMENT_HOST>/api/v1/collectors" | \
-  jq '.collectors[] | select(.remoteConfigStatus == "REMOTE_CONFIG_STATUS_FAILED") | {id, name, remoteConfigStatusMessage}'
+curl -s -X POST "$BASE/collector.v1.CollectorService/ListCollectors" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq '.collectors[] | select(.remoteConfigStatus == "REMOTE_CONFIG_STATUS_FAILED") | {id, name, remoteConfigStatusMessage}'
 ```
 
 **Common failure patterns:**
