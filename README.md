@@ -42,7 +42,7 @@ npx skills add grafana/skills
 
 This writes skills into `.cursor/skills/` in your project so Cursor's agent can load them.
 
-> Cursor's built-in **Add Rule → Remote Rule (Github)** flow is not compatible with this repository. That importer only accepts Cursor Project Rules (`.mdc` files under `.cursor/rules/`), and the Grafana Skills repo follows the [Agent Skills](https://agentskills.io) standard instead (`SKILL.md` files under `skills/`).
+> Cursor's built-in **Add Rule → Remote Rule (GitHub)** flow is not compatible with this repository. That importer only accepts Cursor Project Rules (`.mdc` files under `.cursor/rules/`), and the Grafana Skills repo follows the [Agent Skills](https://agentskills.io) standard instead (`SKILL.md` files under `skills/`).
 
 ### Codex and other Agent Skills tools
 
