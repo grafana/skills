@@ -9,14 +9,7 @@ description: >
 
 # Metrics with Prometheus and Grafana
 
-## Value Proposition
-
-Prometheus is an open-source monitoring and alerting toolkit for cloud-native environments. Combined with
-Grafana Cloud Metrics (powered by Grafana Mimir), it provides a fully managed Prometheus-compatible service
-with long-term storage, global query performance, and enterprise scalability.
-
-**Key Differentiators**: Pull-based model, dimensional data model with labels, PromQL, automatic service
-discovery, scales to billions of active series.
+> **Docs**: https://prometheus.io/docs/ | **Grafana Cloud Metrics**: https://grafana.com/docs/grafana-cloud/send-data/metrics/
 
 ## PromQL Quick Reference
 
@@ -91,46 +84,100 @@ node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
 predict_linear(node_filesystem_free_bytes[6h], 24*3600) < 0
 ```
 
-## Metrics Drilldown
+## Alerting Rules
 
-Queryless Prometheus metrics exploration (preinstalled in Grafana 12+):
-- Browse metrics without writing PromQL
-- Smart segmentation and anomaly detection
-- Auto-visualization with optimal chart types
-- Metric relationship discovery
-- Telemetry pivoting (metrics to logs)
+### Prometheus Alerting Rule
 
-## Alerting
+```yaml
+groups:
+  - name: api_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate ({{ $value | humanizePercentage }})"
+```
 
-### Prometheus Alertmanager
-Route, group, silence, and deduplicate alerts. Multi-destination routing (PagerDuty, Slack, Email, webhooks).
+### Alertmanager Routing
 
-### Grafana Alerting
-Unified alerting across all data sources. Supports multi-dimensional alerts, notification policies,
-and contact points.
+```yaml
+# alertmanager.yml
+route:
+  receiver: default
+  group_by: [alertname, job]
+  group_wait: 30s
+  group_interval: 5m
+  routes:
+    - match:
+        severity: critical
+      receiver: pagerduty
+    - match:
+        severity: warning
+      receiver: slack
 
-### Recording Rules
-Pre-compute expensive PromQL queries for dashboard performance:
+receivers:
+  - name: pagerduty
+    pagerduty_configs:
+      - service_key: "<key>"
+  - name: slack
+    slack_configs:
+      - channel: "#alerts"
+        api_url: "<webhook_url>"
+  - name: default
+    email_configs:
+      - to: "oncall@example.com"
+```
+
+### Validate Alerting Configuration
+
+```bash
+promtool check rules rules.yml
+amtool check-config alertmanager.yml
+amtool config routes test --config.file=alertmanager.yml severity=critical
+```
+
+## Recording Rules
+
+Pre-compute expensive PromQL for dashboard performance:
 
 ```yaml
 groups:
   - name: api_rules
+    interval: 1m
     rules:
       - record: job:http_requests:rate5m
         expr: sum by (job) (rate(http_requests_total[5m]))
+      - record: job:http_request_duration_seconds:p99
+        expr: histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
 ```
 
-## Architecture
+### Deploy and Verify Recording Rules
 
-- **Pull-based scraping**: Prometheus scrapes HTTP endpoints at configured intervals
-- **Service discovery**: Automatic target discovery for K8s, EC2, Consul
-- **Push gateway**: For short-lived jobs that can't be scraped
-- **Remote write/read**: Send metrics to Grafana Cloud, Thanos, Mimir
-- **Local storage**: Efficient on-disk time-series database
+```bash
+# 1. Validate rule syntax
+promtool check rules rules/recording.yml
+
+# 2. Reload Prometheus (after adding to rule_files in prometheus.yml)
+curl -X POST http://localhost:9090/-/reload
+
+# 3. Verify rules are active
+curl -s http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[] | {name, health}'
+```
+
+## Metrics Drilldown (Grafana 12+)
+
+Queryless Prometheus exploration — browse metrics without writing PromQL. Navigate to
+**Explore > Metrics Drilldown** or use `<grafana-url>/a/grafana-metricsdrilldown-app`.
+Provides metric search with label breakdown, smart segmentation for anomaly detection,
+auto-visualization, and telemetry pivoting from metrics to related logs and traces.
 
 ## Resources
 
-- [Prometheus Documentation](https://prometheus.io/docs/)
 - [PromQL Reference](https://prometheus.io/docs/prometheus/latest/querying/basics/)
 - [Grafana Cloud Metrics](https://grafana.com/docs/grafana-cloud/send-data/metrics/)
 - [Metrics Drilldown App](https://github.com/grafana/metrics-drilldown)
