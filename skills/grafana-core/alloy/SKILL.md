@@ -225,11 +225,19 @@ utils.my_component "example" {
 
 ## Clustering
 
-```alloy
-clustering {
-  enabled = true
-}
+Making Alloy aware of peers for clustering and distributing the workload,
+requires setting command-line flags to the `run` command or the system service
+definition.
 
+At minimum, these are the `--cluster.enabled` flag to enable the clustering
+service, and one of `--cluster.join-addresses` or `--cluster.discover-peers` to
+instruct Alloy how to join the cluster. Look at the rest of the `--cluster.*`
+flags to fine-tune the clustering behavior.
+
+With Alloy clustering, cluster-aware components can use the `clustering` block
+to set `enabled=true` and distribute the workload within cluster members.
+
+```alloy
 prometheus.scrape "cluster_aware" {
   targets    = discovery.kubernetes.pods.targets
   forward_to = [prometheus.remote_write.cloud.receiver]
