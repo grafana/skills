@@ -320,7 +320,9 @@ faro.receiver "default" {
   server {
     listen_address = "0.0.0.0"
     listen_port    = 12347
-    cors_allowed_origins = ["*"]
+    // Replace with your actual web origins before deploying — wildcard "*" lets any site send
+    // telemetry to this endpoint and is not suitable for production.
+    cors_allowed_origins = ["https://app.example.com"]
   }
 
   output {

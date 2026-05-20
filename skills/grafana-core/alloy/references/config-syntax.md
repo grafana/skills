@@ -100,8 +100,10 @@ automatically — you do not manually wire updates.
 | `capsule`  | opaque internal type (e.g. component receivers/handlers)  |
 
 Object keys can be unquoted identifiers (`key = "v"`) or quoted strings (`"key" = "v"`). Quoted
-keys are required for non-identifier characters such as `__address__` (leading underscores are
-valid identifiers, but quoted form is conventional for Prometheus-style metadata labels).
+keys are required when the key isn't a valid identifier — e.g. it contains a hyphen
+(`"node-name" = "..."`) or starts with a digit. Identifiers built only from letters, digits, and
+underscores (including leading underscores like `__address__`) are valid unquoted; quoting them is
+purely a convention borrowed from Prometheus-style metadata labels.
 
 ## Expressions
 
@@ -161,19 +163,21 @@ exact export name (`input`, `receiver`, `handler`, ...) depends on the recipient
 
 ## Standard library
 
-Built-in functions live under namespaces. The most-used:
+The stdlib mixes two shapes: most functions live under a **namespace** and are called as
+`namespace.function(...)` (e.g. `sys.env`, `string.replace`); a handful are **top-level** functions
+called by their bare name (e.g. `coalesce`, `json_path`). The most-used:
 
-| Namespace   | Useful members                                                            |
-|-------------|---------------------------------------------------------------------------|
-| `sys`       | `sys.env("VAR")` — read environment variable                              |
-| `constants` | `constants.hostname`, `constants.os`, `constants.arch`                    |
-| `coalesce`  | `coalesce(a, b, c)` — first non-null/non-empty                            |
-| `array`     | `array.concat(a, b)`, `array.combine_maps(...)`                           |
-| `convert`   | `convert.nonsensitive(...)`, type casts                                   |
-| `encoding`  | `encoding.from_json(...)`, `encoding.from_yaml(...)`                      |
-| `file`      | `file.path_join(...)`                                                     |
-| `json_path` | `json_path(doc, "$.field")`                                               |
-| `string`    | `string.to_upper`, `string.to_lower`, `string.replace`, `string.split`    |
+| Name                                              | Shape       | Useful members                                                            |
+|---------------------------------------------------|-------------|---------------------------------------------------------------------------|
+| `sys`                                             | namespace   | `sys.env("VAR")` — read environment variable                              |
+| `constants`                                       | namespace   | `constants.hostname`, `constants.os`, `constants.arch`                    |
+| `array`                                           | namespace   | `array.concat(a, b)`, `array.combine_maps(...)`                           |
+| `convert`                                         | namespace   | `convert.nonsensitive(...)`, type casts                                   |
+| `encoding`                                        | namespace   | `encoding.from_json(...)`, `encoding.from_yaml(...)`                      |
+| `file`                                            | namespace   | `file.path_join(...)`                                                     |
+| `string`                                          | namespace   | `string.to_upper`, `string.to_lower`, `string.replace`, `string.split`    |
+| `coalesce(a, b, c)`                               | top-level   | First non-null/non-empty argument                                         |
+| `json_path(doc, "$.field")`                       | top-level   | Extract values from a JSON document                                       |
 
 Full reference: https://grafana.com/docs/alloy/latest/reference/stdlib/.
 
@@ -268,7 +272,9 @@ declare "wrapped_scrape" {
 
 ## Common pitfalls
 
-- **Quoting object keys** with hyphens or leading underscores: `{"__address__" = "..."}`.
+- **Quoting object keys** is required only when the key isn't a valid identifier (hyphens, dots,
+  leading digits): `{"node-name" = "..."}`. Quoting Prometheus-style keys like `__address__` is
+  conventional but not required.
 - **Trailing commas** are allowed and recommended in multi-line arrays/objects.
 - **Component labels** must match references exactly — `prometheus.scrape "api"` is referenced as
   `prometheus.scrape.api.<export>`, not `api.<export>`.
