@@ -43,4 +43,4 @@ jobs:
     if: github.event.pull_request.head.repo.fork == true
     permissions: {}
     steps:
-      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only). The review will run automatically once the PR is merged."
+      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only and cannot post review comments). A maintainer can run the review on a same-repo branch if needed."
