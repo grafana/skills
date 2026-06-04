@@ -376,7 +376,7 @@ for skill in $SKILL_FILES; do
     # Uses POSIX [[:space:]] rather than \s so the regex works under any
     # POSIX-compliant grep (not just GNU grep's extensions).
     if echo "$dockerfile_body" | grep -qiE '^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+[^[:space:]]+:latest([[:space:]]+AS[[:space:]]+[^[:space:]]+)?[[:space:]]*$'; then
-      warn "Dockerfile uses ':latest' tag — pin to a specific version (e.g. alpine:3.21) to prevent supply chain attacks"
+      error "Dockerfile uses ':latest' tag — pin to a specific version (e.g. alpine:3.21) to prevent supply chain attacks"
     fi
 
     # Docker FROM with no version tag and no digest (@sha256:...)
@@ -384,7 +384,7 @@ for skill in $SKILL_FILES; do
     # Skips:   FROM node:18  /  FROM img@sha256:...  /  FROM scratch (legitimate special keyword)
     if echo "$dockerfile_body" | grep -vE '^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+scratch([[:space:]]+AS[[:space:]]+[^[:space:]]+)?[[:space:]]*$' | \
          grep -qE '^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+[a-zA-Z][^:@[:space:]]*([[:space:]]+AS[[:space:]]+[[:alnum:]_-]+)?[[:space:]]*$'; then
-      warn "Dockerfile FROM with no version tag — pin to a specific version (e.g. FROM alpine:3.21)"
+      error "Dockerfile FROM with no version tag — pin to a specific version (e.g. FROM alpine:3.21)"
     fi
   fi
 
