@@ -3,17 +3,19 @@
 #
 # Checks performed:
 #   1.  YAML frontmatter exists and closes properly
-#   2.  Required fields: name, description
-#   3.  Name format: lowercase alphanumeric + hyphens, no leading/trailing/consecutive hyphens, max 64 chars
-#   4.  Frontmatter name matches parent directory name (warning)
-#   5.  Description is non-empty and ≤ 1024 characters
-#   6.  Only known frontmatter fields are used (spec + Claude Code extensions)
-#   7.  Boolean fields (user-invocable, disable-model-invocation) have valid values
-#   8.  Compatibility field ≤ 500 characters (if present)
-#   9.  Skill body is non-empty and starts with a markdown heading
-#   10. Line count warning if over 500 lines (per repo guidelines)
-#   11. Description trigger phrase check ("Use when")
-#   12. Scripts in skills/*/scripts/ are executable
+#   2.  Inline frontmatter scalars avoid unquoted YAML-breaking ": " sequences
+#   3.  Required fields: name, description
+#   4.  Name format: lowercase alphanumeric + hyphens, no leading/trailing/consecutive hyphens, max 64 chars
+#   5.  Frontmatter name matches parent directory name (warning)
+#   6.  Description is non-empty and ≤ 1024 characters
+#   7.  Only known frontmatter fields are used (spec + Claude Code extensions)
+#   8.  Boolean fields (user-invocable, disable-model-invocation) have valid values
+#   9.  Compatibility field ≤ 500 characters (if present)
+#   10. Skill body is non-empty and starts with a markdown heading
+#   11. Line count warning if over 500 lines (per repo guidelines)
+#   12. Description trigger phrase check ("Use when")
+#   13. Scripts in skills/*/scripts/ are executable
+#   14. Supply chain security: unpinned package/image versions in code examples
 #
 # Usage:
 #   ./scripts/lint-skills.sh [directory ...]
@@ -155,8 +157,36 @@ for skill in $SKILL_FILES; do
   # Extract frontmatter (between the two --- lines, exclusive)
   frontmatter=$(awk "NR>1 && NR<$closing_line" "$skill")
 
+  # Catch the common YAML failure mode for inline plain scalars: an unquoted
+  # ": " sequence inside the value is parsed as a mapping separator.
+  plain_scalar_errors=$(printf '%s\n' "$frontmatter" | awk '
+    /^[^[:space:]#][^:]*:[[:space:]]*/ {
+      field = $0
+      sub(/:.*/, "", field)
+
+      value = $0
+      sub(/^[^:]*:[[:space:]]*/, "", value)
+
+      if (value == "" || value ~ /^[>|][+-]?[[:space:]]*(#.*)?$/) next
+
+      first = substr(value, 1, 1)
+      if (first == "\"" || first == sprintf("%c", 39)) next
+
+      if (value ~ /:[[:space:]]/) {
+        printf "%d:%s\n", NR + 1, field
+      }
+    }
+  ')
+  if [ -n "$plain_scalar_errors" ]; then
+    while IFS=: read -r line field; do
+      error "Invalid inline YAML scalar at line $line ('$field'): quote values containing ': ' or use a block scalar"
+    done <<< "$plain_scalar_errors"
+    continue
+  fi
+  ok "Inline frontmatter scalars"
+
   # ------------------------------------------------------------------
-  # 2. Required fields: name, description
+  # 3. Required fields: name, description
   # ------------------------------------------------------------------
   skill_name=$(echo "$frontmatter" | awk '/^name:/{print $2; exit}')
   if [ -z "$skill_name" ]; then
@@ -165,7 +195,7 @@ for skill in $SKILL_FILES; do
     ok "Has 'name' field: $skill_name"
 
     # ------------------------------------------------------------------
-    # 2b. Name format validation (Agent Skills spec)
+    # 3b. Name format validation (Agent Skills spec)
     #     - Max 64 chars, lowercase alphanumeric + hyphens only
     #     - Must not start or end with hyphen
     #     - Must not contain consecutive hyphens (--)
@@ -180,7 +210,7 @@ for skill in $SKILL_FILES; do
     if echo "$skill_name" | grep -qE '^-|-$'; then
       error "'name' must not start or end with a hyphen: '$skill_name'"
     fi
-    if echo "$skill_name" | grep -qE '\-\-'; then
+    if echo "$skill_name" | grep -q -- '--'; then
       error "'name' must not contain consecutive hyphens (--): '$skill_name'"
     fi
   fi
@@ -207,7 +237,7 @@ for skill in $SKILL_FILES; do
     fi
 
     # ------------------------------------------------------------------
-    # 2c. Description length validation (max 1024 chars per spec)
+    # 3c. Description length validation (max 1024 chars per spec)
     # ------------------------------------------------------------------
     full_desc_text=$(echo "$frontmatter" | awk '/^description:/{found=1; sub(/^description:[[:space:]]*/, ""); if ($0 != ">" && $0 != "|") buf=$0; next}
       found && /^[[:space:]]+[^[:space:]]/{gsub(/^[[:space:]]+/, ""); buf=buf " " $0; next}
@@ -323,6 +353,101 @@ for skill in $SKILL_FILES; do
   if [ -n "$full_desc" ]; then
     if ! echo "$full_desc" | grep -qi "use when"; then
       warn "Description missing 'Use when' trigger phrase (helps agent auto-loading)"
+    fi
+  fi
+
+  # ------------------------------------------------------------------
+  # 14. Supply chain security: unpinned package/image versions
+  # ------------------------------------------------------------------
+  skill_body=$(awk "NR>$closing_line" "$skill")
+
+  # Extract lines inside dockerfile code fences (```dockerfile or ```Dockerfile),
+  # allowing leading indentation for fenced blocks nested in markdown lists.
+  # This avoids matching SQL FROM clauses and other non-Docker content.
+  dockerfile_body=$(echo "$skill_body" | awk '
+    /^[[:space:]]*```[Dd]ockerfile/{in_block=1; next}
+    in_block && /^[[:space:]]*```/{in_block=0; next}
+    in_block{print}
+  ')
+
+  if [ -n "$dockerfile_body" ]; then
+    # Docker FROM with :latest tag
+    # Handles optional flags before the image: FROM --platform=$BUILDPLATFORM alpine:latest
+    # Uses POSIX [[:space:]] rather than \s so the regex works under any
+    # POSIX-compliant grep (not just GNU grep's extensions).
+    if echo "$dockerfile_body" | grep -qiE '^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+[^[:space:]]+:latest([[:space:]]+AS[[:space:]]+[^[:space:]]+)?[[:space:]]*$'; then
+      warn "Dockerfile uses ':latest' tag — pin to a specific version (e.g. alpine:3.21) to prevent supply chain attacks"
+    fi
+
+    # Docker FROM with no version tag and no digest (@sha256:...)
+    # Matches: FROM alpine  /  FROM ubuntu AS builder  /  FROM --platform=linux/amd64 alpine
+    # Skips:   FROM node:18  /  FROM img@sha256:...  /  FROM scratch (legitimate special keyword)
+    if echo "$dockerfile_body" | grep -vE '^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+scratch([[:space:]]+AS[[:space:]]+[^[:space:]]+)?[[:space:]]*$' | \
+         grep -qE '^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+[a-zA-Z][^:@[:space:]]*([[:space:]]+AS[[:space:]]+[[:alnum:]_-]+)?[[:space:]]*$'; then
+      warn "Dockerfile FROM with no version tag — pin to a specific version (e.g. FROM alpine:3.21)"
+    fi
+  fi
+
+  # npm install -g / --global without a pinned version (@x.y.z or @$(npm view ... version))
+  if echo "$skill_body" | grep -E 'npm install (-g|--global) ' | grep -qvE '@([0-9]|\$\()'; then
+    if echo "$skill_body" | grep -qE 'npm install (-g|--global) '; then
+      warn "npm global install without pinned version — use 'npm install -g pkg@x.y.z' to prevent supply chain attacks"
+    fi
+  fi
+
+  # pip install <package> without a version specifier.
+  # Validates each package token individually so that a mixed command like
+  # "pip install pyyaml requests==2.31.0" still warns for the unpinned token.
+  # Skips: -r / --requirement (installs from a file).
+  # Skips known options that consume a separate value token (e.g. -c, --index-url).
+  pip_install_unpinned=$(echo "$skill_body" | awk '
+    /pip[0-9]?[[:space:]]+install[[:space:]]/ {
+      line = $0
+      sub(/^.*pip[0-9]?[[:space:]]+install[[:space:]]+/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line == "") next
+
+      n = split(line, tokens, /[[:space:]]+/)
+      skip_next = 0
+      for (i = 1; i <= n; i++) {
+        token = tokens[i]
+        if (token == "") continue
+
+        if (skip_next) { skip_next = 0; continue }
+
+        # -r / --requirement: skip the whole line (requirements-file install)
+        if (token == "-r" || token == "--requirement") next
+        if (token ~ /^--requirement=/) next
+
+        # Options that take a separate value token — skip the value
+        if (token ~ /^(-c|--constraint|-i|--index-url|--extra-index-url|-f|--find-links|--trusted-host|-t|--target|--prefix|--root|--src|--log|--proxy|--timeout|--retries|--cert|--client-cert|--cache-dir|--build-option|--global-option|--no-binary|--only-binary|--progress-bar|--report)$/) {
+          skip_next = 1; continue
+        }
+
+        # Skip all other flag tokens (valueless flags like -U, --upgrade, --user, --no-cache-dir)
+        if (token ~ /^-/) continue
+
+        # Warn if this package-like token lacks a version specifier
+        if (token ~ /^[[:alnum:]_.-]+(\[[^]]+\])?([<>=!~].*)?$/ && token !~ /(==|>=|~=|<=|!=|>|<)/) {
+          print token
+        }
+      }
+    }
+  ')
+  if [ -n "$pip_install_unpinned" ]; then
+    warn "pip install without pinned version — use 'pip install pkg==x.y.z' to prevent supply chain attacks"
+  fi
+
+  # helm install / helm upgrade without --version
+  # Join continuation lines (\-terminated) into single logical lines before checking,
+  # so that --version on a follow-up line is not missed.
+  helm_joined=$(echo "$skill_body" | awk '{
+    if (/\\$/) { sub(/\\$/, ""); printf "%s ", $0 }
+    else { print }
+  }')
+  if echo "$helm_joined" | grep -E 'helm (install|upgrade)' | grep -qv -- '--version'; then
+    if echo "$helm_joined" | grep -qE 'helm (install|upgrade)'; then
+      warn "helm install/upgrade without --version — pin the chart version for reproducible deployments"
     fi
   fi
 
