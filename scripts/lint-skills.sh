@@ -391,7 +391,7 @@ for skill in $SKILL_FILES; do
   # npm install -g / --global without a pinned version (@x.y.z or @$(npm view ... version))
   if echo "$skill_body" | grep -E 'npm install (-g|--global) ' | grep -qvE '@([0-9]|\$\()'; then
     if echo "$skill_body" | grep -qE 'npm install (-g|--global) '; then
-      warn "npm global install without pinned version — use 'npm install -g pkg@x.y.z' to prevent supply chain attacks"
+      error "npm global install without pinned version — use 'npm install -g pkg@x.y.z' to prevent supply chain attacks"
     fi
   fi
 
@@ -404,6 +404,9 @@ for skill in $SKILL_FILES; do
     /pip[0-9]?[[:space:]]+install[[:space:]]/ {
       line = $0
       sub(/^.*pip[0-9]?[[:space:]]+install[[:space:]]+/, "", line)
+      # Stop at the first inline-code closing backtick so narrative text after
+      # `pip install pkg==1.0` doesn'\''t get parsed as more packages.
+      sub(/`.*/, "", line)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
       if (line == "") next
 
@@ -435,7 +438,7 @@ for skill in $SKILL_FILES; do
     }
   ')
   if [ -n "$pip_install_unpinned" ]; then
-    warn "pip install without pinned version — use 'pip install pkg==x.y.z' to prevent supply chain attacks"
+    error "pip install without pinned version — use 'pip install pkg==x.y.z' to prevent supply chain attacks"
   fi
 
   # helm install / helm upgrade without --version
@@ -447,7 +450,7 @@ for skill in $SKILL_FILES; do
   }')
   if echo "$helm_joined" | grep -E 'helm (install|upgrade)' | grep -qv -- '--version'; then
     if echo "$helm_joined" | grep -qE 'helm (install|upgrade)'; then
-      warn "helm install/upgrade without --version — pin the chart version for reproducible deployments"
+      error "helm install/upgrade without --version — pin the chart version for reproducible deployments"
     fi
   fi
 

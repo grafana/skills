@@ -30,7 +30,7 @@ docker run -v $(pwd)/config.alloy:/etc/alloy/config.alloy \
 
 # Kubernetes (Helm)
 helm repo add grafana https://grafana.github.io/helm-charts
-helm install alloy grafana/alloy -f values.yaml
+helm install alloy grafana/alloy --version 1.8.2 -f values.yaml
 
 # Run
 alloy run /path/to/config.alloy

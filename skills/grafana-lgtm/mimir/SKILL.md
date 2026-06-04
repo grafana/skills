@@ -148,7 +148,7 @@ mimir -config.file=mimir.yaml -target=all
 
 # Kubernetes (Helm)
 helm repo add grafana https://grafana.github.io/helm-charts
-helm install mimir grafana/mimir-distributed -f values.yaml
+helm install mimir grafana/mimir-distributed --version 6.0.6 -f values.yaml
 
 # Read-Write mode
 mimir -target=write    # distributor + ingester

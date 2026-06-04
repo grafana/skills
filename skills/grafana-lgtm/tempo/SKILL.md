@@ -167,6 +167,7 @@ docker compose up -d
 ```bash
 helm repo add grafana https://grafana.github.io/helm-charts
 helm install tempo grafana/tempo-distributed \
+  --version 1.61.3 \
   --set storage.trace.backend=s3 \
   --set storage.trace.s3.bucket=my-tempo-bucket \
   --set storage.trace.s3.region=us-east-1

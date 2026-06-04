@@ -89,6 +89,7 @@ kubectl create secret generic grafana-cloud-secret \
   -n monitoring
 
 helm install k8s-monitoring grafana/k8s-monitoring \
+  --version 4.1.4 \
   -n monitoring --create-namespace \
   -f values.yaml
 ```

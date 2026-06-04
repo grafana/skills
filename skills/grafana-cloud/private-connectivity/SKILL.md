@@ -140,6 +140,7 @@ For connecting to **data sources** (databases, Prometheus, etc.) hosted in priva
 ```bash
 # Install PDC agent
 helm install pdc grafana/grafana-agent \
+  --version 0.44.2 \
   --set pdcConfig.hostedGrafanaId=<your-stack-id> \
   --set pdcConfig.token=<pdc-token>
 ```

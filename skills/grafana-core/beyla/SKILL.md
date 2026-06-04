@@ -54,6 +54,7 @@ docker run --privileged --pid=host \
 # Kubernetes (Helm)
 helm repo add grafana https://grafana.github.io/helm-charts
 helm install beyla grafana/beyla \
+  --version 1.16.7 \
   --set discovery.services[0].open_port=8080 \
   --set otelTraces.endpoint=http://tempo:4318
 ```

@@ -357,7 +357,7 @@ Trace spans capture:
 ### Python Setup with OpenLIT
 
 ```bash
-pip install openlit openai anthropic cohere
+pip install openlit==1.42.0 openai==2.41.0 anthropic==0.105.2 cohere==7.0.3
 ```
 
 ```python
@@ -431,7 +431,7 @@ Once metrics arrive, Grafana Cloud auto-populates five dashboards:
 1. In Grafana Cloud: **Connections** > search "AI Observability" > click the card
 2. Follow the UI wizard to get your OTLP endpoint and API key
 3. Set the environment variables
-4. `pip install openlit` and call `openlit.init()` at app startup
+4. `pip install openlit==1.42.0` and call `openlit.init()` at app startup
 5. Deploy - dashboards populate automatically within minutes
 
 ---

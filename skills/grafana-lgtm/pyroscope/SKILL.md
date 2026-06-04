@@ -28,7 +28,7 @@ Three ways to send profiles to Pyroscope:
 ### Python
 
 ```bash
-pip install pyroscope-io
+pip install pyroscope-io==1.0.11
 ```
 
 ```python
