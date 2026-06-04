@@ -6,13 +6,9 @@ on:
     paths:
       - 'skills/**/SKILL.md'
 
-permissions:
-  contents: read
-  # The action posts/updates a PR comment via octokit.rest.issues.createComment,
-  # which is gated on `issues: write` (not `pull-requests: write`) since GitHub
-  # treats PR comments as issue comments under the hood.
-  issues: write
-  pull-requests: read
+# Workflow defaults to no permissions; each job grants only what it needs
+# (avoids zizmor/excessive-permissions on the workflow-wide block).
+permissions: {}
 
 jobs:
   skill-review:
@@ -21,6 +17,13 @@ jobs:
     # cannot succeed there. Skip the job rather than fail; the review can run
     # locally via scripts/review-all-skills.sh on the contributor's branch.
     if: github.event.pull_request.head.repo.fork != true
+    permissions:
+      contents: read
+      # The action posts/updates a PR comment via octokit.rest.issues.createComment,
+      # which is gated on `issues: write` (not `pull-requests: write`) since GitHub
+      # treats PR comments as issue comments under the hood.
+      issues: write
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -39,5 +42,6 @@ jobs:
   fork-pr-notice:
     runs-on: ubuntu-latest
     if: github.event.pull_request.head.repo.fork == true
+    permissions: {}
     steps:
       - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only). Run the review locally with scripts/review-all-skills.sh and paste results into the PR."
