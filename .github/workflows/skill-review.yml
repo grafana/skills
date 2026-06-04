@@ -1,0 +1,29 @@
+name: Skill Review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'skills/**/SKILL.md'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  skill-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # tesslio/skill-review has no tagged releases as of 2026-06-04, so we pin to
+      # the current HEAD commit on main per Grafana's GitHub Actions guidelines.
+      # Refresh this SHA on review by running:
+      #   gh api repos/tesslio/skill-review/commits/main --jq .sha
+      - name: Run Tessl Skill Review
+        uses: tesslio/skill-review@22e928dd837202b2b1d1397e0114c92e0fae5ead # main @ 2026-03-27
+        with:
+          # Report only at first — flip to a numeric threshold (e.g. 70) once we
+          # have a baseline of real scores against this repo's skills.
+          fail-threshold: 0
