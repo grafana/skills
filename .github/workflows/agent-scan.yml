@@ -17,12 +17,19 @@ permissions:
 jobs:
   agent-scan:
     runs-on: ubuntu-latest
+    # Fork PRs don't have access to SNYK_TOKEN. Skip the scan with a warning
+    # rather than failing the check on external contributions; the same scan
+    # will run on push to main after merge.
+    if: github.event.pull_request.head.repo.fork != true
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          # Pin uv itself so the runner environment stays deterministic.
+          version: "0.11.19"
 
       - name: Run snyk-agent-scan
         env:
@@ -46,3 +53,11 @@ jobs:
           name: agent-scan-report
           path: agent-scan.json
           if-no-files-found: ignore
+
+  # Surface a clear, non-blocking note on fork PRs so contributors know the
+  # scan was skipped and will run after merge.
+  fork-pr-notice:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+    steps:
+      - run: echo "::notice::Skipping Snyk Agent Scan on fork PR (no access to SNYK_TOKEN). The scan will run on push to main after merge."
