@@ -8,11 +8,19 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  # The action posts/updates a PR comment via octokit.rest.issues.createComment,
+  # which is gated on `issues: write` (not `pull-requests: write`) since GitHub
+  # treats PR comments as issue comments under the hood.
+  issues: write
+  pull-requests: read
 
 jobs:
   skill-review:
     runs-on: ubuntu-latest
+    # Fork PRs receive a read-only GITHUB_TOKEN, so the comment-posting step
+    # cannot succeed there. Skip the job rather than fail; the review can run
+    # locally via scripts/review-all-skills.sh on the contributor's branch.
+    if: github.event.pull_request.head.repo.fork != true
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -27,3 +35,9 @@ jobs:
           # Report only at first — flip to a numeric threshold (e.g. 70) once we
           # have a baseline of real scores against this repo's skills.
           fail-threshold: 0
+
+  fork-pr-notice:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.fork == true
+    steps:
+      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only). Run the review locally with scripts/review-all-skills.sh and paste results into the PR."
