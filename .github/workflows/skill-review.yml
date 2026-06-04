@@ -14,8 +14,7 @@ jobs:
   skill-review:
     runs-on: ubuntu-latest
     # Fork PRs receive a read-only GITHUB_TOKEN, so the comment-posting step
-    # cannot succeed there. Skip the job rather than fail; the review can run
-    # locally via scripts/review-all-skills.sh on the contributor's branch.
+    # cannot succeed there. Skip the job rather than fail.
     if: github.event.pull_request.head.repo.fork != true
     permissions:
       contents: read
@@ -44,4 +43,4 @@ jobs:
     if: github.event.pull_request.head.repo.fork == true
     permissions: {}
     steps:
-      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only). Run the review locally with scripts/review-all-skills.sh and paste results into the PR."
+      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only). The review will run automatically once the PR is merged."
