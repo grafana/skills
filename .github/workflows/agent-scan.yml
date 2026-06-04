@@ -1,0 +1,48 @@
+name: Snyk Agent Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'skills/**/SKILL.md'
+      - 'skills/**/mcp.json'
+      - 'skills/**/.mcp.json'
+      - 'skills/**/*.mcp.json'
+
+permissions:
+  contents: read
+
+jobs:
+  agent-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+
+      - name: Run snyk-agent-scan
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -z "${SNYK_TOKEN:-}" ]; then
+            echo "::error::SNYK_TOKEN is not set. Add it as a repository secret (see https://app.snyk.io/account)."
+            exit 1
+          fi
+          # Pin to a specific version for reproducibility; bump via PR after vetting release notes.
+          uvx --python 3.13 snyk-agent-scan@0.5.8 scan \
+            --json \
+            --no-bootstrap \
+            skills \
+            | tee agent-scan.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agent-scan-report
+          path: agent-scan.json
+          if-no-files-found: ignore
