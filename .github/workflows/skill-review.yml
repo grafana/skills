@@ -18,14 +18,25 @@ jobs:
     if: github.event.pull_request.head.repo.fork != true
     permissions:
       contents: read
-      # The action posts/updates a PR comment via octokit.rest.issues.createComment,
-      # which is gated on `issues: write` (not `pull-requests: write`) since GitHub
-      # treats PR comments as issue comments under the hood.
+      # id-token: write — required by grafana/shared-workflows for Vault OIDC.
+      id-token: write
+      # issues: write — the action posts/updates a PR comment via
+      # octokit.rest.issues.createComment (PR comments are issue comments
+      # under the hood). pull-requests: read is enough to list changed files.
       issues: write
       pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Get Tessl token from Vault
+        # Tessl API token (from https://tessl.io workspace settings) maintained
+        # in Grafana's dev Vault.
+        uses: grafana/shared-workflows/actions/get-vault-secrets@main
+        with:
+          vault_instance: dev
+          repo_secrets: |
+            TESSL_TOKEN=tessl-token:token
 
       # tesslio/skill-review has no tagged releases as of 2026-06-04, so we pin to
       # the current HEAD commit on main per Grafana's GitHub Actions guidelines.
@@ -33,6 +44,11 @@ jobs:
       #   gh api repos/tesslio/skill-review/commits/main --jq .sha
       - name: Run Tessl Skill Review
         uses: tesslio/skill-review@22e928dd837202b2b1d1397e0114c92e0fae5ead # main @ 2026-03-27
+        env:
+          # The action's internal setup-tessl@v1 path is unauthenticated, but
+          # we forward TESSL_TOKEN so when @v2 lands (token-required) the
+          # workflow keeps working without a code change.
+          TESSL_TOKEN: ${{ env.TESSL_TOKEN }}
         with:
           # Report only at first — flip to a numeric threshold (e.g. 70) once we
           # have a baseline of real scores against this repo's skills.
