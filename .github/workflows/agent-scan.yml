@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: read
       id-token: write   # required by grafana/shared-workflows for Vault OIDC
+      pull-requests: read   # for gh pr view file list
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -39,15 +40,60 @@ jobs:
           repo_secrets: |
             SNYK_TOKEN=snyk-token:token
 
+      - name: Identify scan targets
+        id: targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # PR runs: scan only the changed skill directories (faster + focused).
+          # Push-to-main: full audit over every plugin group.
+          #
+          # snyk-agent-scan's inspect_skills_dir expects <arg>/<name>/SKILL.md
+          # (one level of nesting). This repo nests one extra level —
+          # skills/<plugin>/<name>/ — so we always point the scanner at a
+          # directory that contains SKILL.md directly, never at skills/.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            dirs=$(gh pr view "$PR_NUMBER" --json files \
+              --jq '.files[].path | select(endswith("/SKILL.md"))' \
+              | xargs -I{} dirname {} \
+              | sort -u)
+          else
+            # Each skill dir individually (skills/<plugin>/<name>)
+            dirs=$(find skills -mindepth 2 -maxdepth 2 -type d | sort -u)
+          fi
+          if [ -z "$dirs" ]; then
+            echo "No skill directories to scan"
+          else
+            echo "Scanning:"
+            echo "$dirs"
+          fi
+          {
+            echo "dirs<<EOF"
+            echo "$dirs"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Run snyk-agent-scan
+        if: steps.targets.outputs.dirs != ''
         run: |
           # SNYK_TOKEN is exported by get-vault-secrets; uvx picks it up.
-          # Pin to a specific version for reproducibility; bump via PR after vetting release notes.
-          uvx --python 3.13 snyk-agent-scan@0.5.8 scan \
-            --json \
-            --no-bootstrap \
-            skills \
-            | tee agent-scan.json
+          : > agent-scan.json
+          echo "${{ steps.targets.outputs.dirs }}" | while IFS= read -r dir; do
+            [ -z "$dir" ] && continue
+            echo "::group::Scanning $dir"
+            uvx --python 3.13 snyk-agent-scan@0.5.8 scan \
+              --json --no-bootstrap "$dir" >> agent-scan.json
+            echo "::endgroup::"
+          done
+          # The CLI doesn't reliably exit non-zero when it has issues; gate
+          # explicitly on the aggregated issues array length.
+          total_issues=$(jq -es 'map(.skills.issues // [] | length) | add // 0' agent-scan.json)
+          echo "Total issues: $total_issues"
+          if [ "$total_issues" -gt 0 ]; then
+            echo "::error::snyk-agent-scan reported $total_issues issue(s); see the agent-scan-report artifact"
+            exit 1
+          fi
 
       - name: Upload report
         if: always()
