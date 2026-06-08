@@ -18,9 +18,7 @@ jobs:
     if: github.event.pull_request.head.repo.fork != true
     permissions:
       contents: read
-      # id-token: write is needed by both grafana/shared-workflows actions
-      # (Vault OIDC for the token retrieval; GitHub OIDC for the App-token mint).
-      id-token: write
+      id-token: write   # Vault OIDC
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -36,36 +34,28 @@ jobs:
           repo_secrets: |
             TESSL_TOKEN=tessl-token:token
 
-      - name: Mint GitHub App token for PR comments
-        id: app-token
-        # Grafana org-level workflow permissions are capped at 'read', so the
-        # default GITHUB_TOKEN can't post issue/PR comments even when the
-        # workflow file grants `issues: write` (the runner reports the scope as
-        # granted but the API rejects with 'Resource not accessible by
-        # integration'). Mint an App token via grafana-ci-bot, which has its
-        # own permissions configured at the App level and is the canonical
-        # pattern across the org (e.g. grafana/grafana frontend-lint.yml).
-        uses: grafana/shared-workflows/actions/create-github-app-token@46f48da11e78ebdba7a8747ae456b11062fac83e # create-github-app-token/v0.3.1
-        with:
-          github_app: grafana-ci-bot
-
       # tesslio/skill-review has no tagged releases as of 2026-06-04, so we pin to
       # the current HEAD commit on main per Grafana's GitHub Actions guidelines.
       # Refresh this SHA on review by running:
       #   gh api repos/tesslio/skill-review/commits/main --jq .sha
+      #
+      # PR comments are currently disabled (`comment: false`) because Grafana
+      # org-level workflow permissions are capped at 'read' and the default
+      # GITHUB_TOKEN can't post issue comments. The canonical fix is to mint
+      # an App token via grafana/shared-workflows/actions/create-github-app-token
+      # (e.g. grafana-ci-bot), but that requires per-repo Vault roles to be
+      # provisioned in deployment_tools — see follow-up. Until then, scores
+      # appear in the run log and the status check still gates merges.
       - name: Run Tessl Skill Review
         uses: tesslio/skill-review@22e928dd837202b2b1d1397e0114c92e0fae5ead # main @ 2026-03-27
         env:
           # TESSL_TOKEN forwarded so the action keeps working when setup-tessl@v1
           # is phased out for @v2 (token-required).
           TESSL_TOKEN: ${{ fromJSON(steps.get-secrets.outputs.secrets).TESSL_TOKEN }}
-          # Override the default GITHUB_TOKEN with the App token so PR comments
-          # post successfully (the App token bypasses the org-level read cap).
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
+          comment: 'false'
           # Block PR merge on scores below 75. Anthropic best-practice baseline
           # is ~80; 75 leaves some room for rubric noise without being lax.
-          # Surfaced to reviewers in the PR comment posted by the action.
           fail-threshold: 75
 
   fork-pr-notice:
