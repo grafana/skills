@@ -32,7 +32,7 @@ jobs:
       - name: Get Tessl token from Vault
         # Tessl API token (from https://tessl.io workspace settings) maintained
         # in Grafana's dev Vault.
-        uses: grafana/shared-workflows/actions/get-vault-secrets@main
+        uses: grafana/shared-workflows/actions/get-vault-secrets@b2f47cf9a22221fcb6fb816ffea2fd382971b218 # main
         with:
           vault_instance: dev
           repo_secrets: |
