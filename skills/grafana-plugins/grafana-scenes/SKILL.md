@@ -1,13 +1,7 @@
 ---
 name: grafana-scenes
 license: Apache-2.0
-description:
-  Build Grafana plugin pages using the @grafana/scenes framework. Use this skill when creating
-  new scene pages, adding panels/visualizations, setting up drilldown navigation, defining
-  variables, configuring query runners, building table/timeseries/stat panels, or extending
-  SceneObjectBase for custom scene objects. Triggers on any work involving SceneApp, SceneAppPage,
-  EmbeddedScene, SceneQueryRunner, SceneDataTransformer, PanelBuilders, SceneFlexLayout,
-  QueryVariable, or drilldown/tab configuration in Grafana plugins.
+description: Build Grafana plugin pages using the @grafana/scenes framework. Use when creating new scene pages, adding panels/visualizations, setting up drilldown navigation, defining variables, configuring query runners, building table/timeseries/stat panels, or extending SceneObjectBase for custom scene objects. Triggers on any work involving SceneApp, SceneAppPage, EmbeddedScene, SceneQueryRunner, SceneDataTransformer, PanelBuilders, SceneFlexLayout, QueryVariable, or drilldown/tab configuration in Grafana plugins.
 ---
 
 # @grafana/scenes Framework
