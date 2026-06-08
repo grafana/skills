@@ -30,8 +30,10 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Get Tessl token from Vault
+        id: get-secrets
         # Tessl API token (from https://tessl.io workspace settings) maintained
-        # in Grafana's dev Vault.
+        # in Grafana's dev Vault. The action no longer exports secrets as env
+        # vars by default; we forward TESSL_TOKEN explicitly on the review step.
         uses: grafana/shared-workflows/actions/get-vault-secrets@b2f47cf9a22221fcb6fb816ffea2fd382971b218 # main
         with:
           vault_instance: dev
@@ -46,9 +48,9 @@ jobs:
         uses: tesslio/skill-review@22e928dd837202b2b1d1397e0114c92e0fae5ead # main @ 2026-03-27
         env:
           # The action's internal setup-tessl@v1 path is unauthenticated, but
-          # we forward TESSL_TOKEN so when @v2 lands (token-required) the
-          # workflow keeps working without a code change.
-          TESSL_TOKEN: ${{ env.TESSL_TOKEN }}
+          # forwarding TESSL_TOKEN now means no follow-up code change when
+          # @v2 (token-required) lands.
+          TESSL_TOKEN: ${{ fromJSON(steps.get-secrets.outputs.secrets).TESSL_TOKEN }}
         with:
           # Report only at first — flip to a numeric threshold (e.g. 70) once we
           # have a baseline of real scores against this repo's skills.
