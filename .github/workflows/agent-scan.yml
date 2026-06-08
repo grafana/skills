@@ -100,21 +100,34 @@ jobs:
             echo "::endgroup::"
           done < <(printf '%s\n' "${{ steps.targets.outputs.dirs }}")
 
-          # Aggregate issues. jq errors here mean the JSON is malformed —
-          # that's a hard failure, not "treat as zero".
-          total_issues=$(jq -es 'map(.skills.issues // [] | length) | add // 0' agent-scan.json)
+          # Aggregate by Snyk severity prefix:
+          #   E* = error  (prompt injection E001/E004, malware E006, etc.)
+          #   W* = warning (credential handling W007, hardcoded secrets W008,
+          #                 untrusted content W011, etc.)
+          # Source: https://github.com/snyk/agent-scan/blob/main/docs/issue-codes.md
+          # Policy: block PR merge on any E* finding; surface W* as advisory.
+          # jq errors here mean the JSON is malformed — that's a hard failure,
+          # not "treat as zero".
+          errors=$(jq -es '[.[].skills.issues[]? | select(.code | startswith("E"))] | length' agent-scan.json)
           jq_rc=$?
-          echo "Total issues: $total_issues"
-          echo "Scan failures: $scan_failures"
+          warnings=$(jq -es '[.[].skills.issues[]? | select(.code | startswith("W"))] | length' agent-scan.json)
+          total_issues=$(jq -es 'map(.skills.issues // [] | length) | add // 0' agent-scan.json)
+          echo "Total issues:    $total_issues"
+          echo "  E* (blocking): $errors"
+          echo "  W* (advisory): $warnings"
+          echo "Scan failures:   $scan_failures"
 
           rc=0
           if [ "$jq_rc" -ne 0 ]; then
             echo "::error::Failed to parse agent-scan.json — cannot verify scan results"
             rc=1
           fi
-          if [ "$total_issues" -gt 0 ]; then
-            echo "::error::snyk-agent-scan reported $total_issues issue(s); see the agent-scan-report artifact"
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::snyk-agent-scan reported $errors blocking (E*) issue(s); see the agent-scan-report artifact"
             rc=1
+          fi
+          if [ "$warnings" -gt 0 ]; then
+            echo "::warning::snyk-agent-scan reported $warnings advisory (W*) finding(s); see the agent-scan-report artifact"
           fi
           if [ "$scan_failures" -gt 0 ]; then
             echo "::error::$scan_failures skill scan(s) failed; cannot confirm clean scan — see warnings above"
