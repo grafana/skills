@@ -84,26 +84,43 @@ jobs:
           # SNYK_TOKEN only on this trusted scan step.
           SNYK_TOKEN: ${{ fromJSON(steps.get-secrets.outputs.secrets).SNYK_TOKEN }}
         run: |
-          set +e   # don't bail the whole loop if one skill scan errors
+          set -uo pipefail
           : > agent-scan.json
           scan_failures=0
-          echo "${{ steps.targets.outputs.dirs }}" | while IFS= read -r dir; do
+          # Process-substitution feeds the while loop in the current shell so
+          # scan_failures isn't lost to a subshell pipe.
+          while IFS= read -r dir; do
             [ -z "$dir" ] && continue
             echo "::group::Scanning $dir"
             if ! uvx --python 3.13 snyk-agent-scan@0.5.8 scan \
                    --json --no-bootstrap "$dir" >> agent-scan.json; then
               echo "::warning::snyk-agent-scan exited non-zero for $dir"
+              scan_failures=$((scan_failures + 1))
             fi
             echo "::endgroup::"
-          done
-          # The CLI doesn't reliably exit non-zero when it has issues; gate
-          # explicitly on the aggregated issues array length.
-          total_issues=$(jq -es 'map(.skills.issues // [] | length) | add // 0' agent-scan.json 2>/dev/null || echo 0)
+          done < <(printf '%s\n' "${{ steps.targets.outputs.dirs }}")
+
+          # Aggregate issues. jq errors here mean the JSON is malformed —
+          # that's a hard failure, not "treat as zero".
+          total_issues=$(jq -es 'map(.skills.issues // [] | length) | add // 0' agent-scan.json)
+          jq_rc=$?
           echo "Total issues: $total_issues"
+          echo "Scan failures: $scan_failures"
+
+          rc=0
+          if [ "$jq_rc" -ne 0 ]; then
+            echo "::error::Failed to parse agent-scan.json — cannot verify scan results"
+            rc=1
+          fi
           if [ "$total_issues" -gt 0 ]; then
             echo "::error::snyk-agent-scan reported $total_issues issue(s); see the agent-scan-report artifact"
-            exit 1
+            rc=1
           fi
+          if [ "$scan_failures" -gt 0 ]; then
+            echo "::error::$scan_failures skill scan(s) failed; cannot confirm clean scan — see warnings above"
+            rc=1
+          fi
+          exit $rc
 
       - name: Upload report
         if: always()
