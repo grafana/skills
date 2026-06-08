@@ -1,7 +1,7 @@
 ---
 name: k6-docs
 license: Apache-2.0
-description: Use when writing or reviewing k6 documentation across TypeScript types, user docs, and release notes.
+description: Write or review k6 documentation across the three k6 repositories - k6-DefinitelyTyped (TypeScript types), k6-docs (user documentation), and k6 (release notes / changelog). Applies k6 doc style conventions, generates TypeScript type definitions, drafts release notes, and validates examples by running them against k6@master. Use when working on k6 documentation, the k6 changelog, the k6 release notes, k6 API reference, k6 TypeScript types, load testing docs, or when the user asks to write, edit, or review anything in the k6, k6-docs, or k6-DefinitelyTyped repos - even if they don't explicitly say "documentation".
 ---
 
 # k6 Documentation
@@ -10,10 +10,10 @@ Document or review k6 features across three repositories: k6-DefinitelyTyped (Ty
 
 ## Workflow
 
-Based on user's action, follow the appropriate workflow:
+Pick the workflow that matches the user's intent:
 
-- **Write Documentation:** [Complete write workflow](references/workflows/write.md)
-- **Review Documentation:** [Complete review workflow](references/workflows/review.md)
+- **Write documentation:** follow [references/workflows/write.md](references/workflows/write.md)
+- **Review documentation:** follow [references/workflows/review.md](references/workflows/review.md)
 
 ## Quick References
 
@@ -25,9 +25,23 @@ Based on user's action, follow the appropriate workflow:
 
 ## Critical Rules
 
-- Never push automatically - always ask first
-- Never chain commands with `&&` or `;` - run each command separately (prevents failures)
-- Only document user-facing features - not internal implementation
-- Use `1.` for all numbered list items (not 1., 2., 3.)
-- Test with k6@master: first `cd /path/to/k6`, then `go run . run script.js` for each example
-- No "Co-Authored-By: Claude" or AI attribution
+- **Never push automatically** - always ask first
+- **Never chain commands with `&&` or `;`** - run each command separately (prevents failures)
+- **Only document user-facing features** - not internal implementation
+- **Use `1.` for every numbered list item** (not `1.`, `2.`, `3.`)
+- **Test every code example** against k6@master before committing
+- **No `Co-Authored-By: Claude` or AI attribution** in commits
+
+## Validating examples (always run before committing)
+
+Every code example in k6 docs must execute cleanly against `k6@master`. The minimum loop:
+
+```bash
+# 1. cd into the k6 repo (not k6-docs)
+cd ~/path/to/k6
+
+# 2. Run each example as a separate command (no &&)
+go run . run /path/to/script.js
+```
+
+If the run fails: read the error, fix the example in the doc, re-run. Do not commit a doc edit whose example doesn't run clean. For the full multi-example workflow with parallel subagents, see [references/testing-workflow.md](references/testing-workflow.md).
