@@ -1,0 +1,13 @@
+{
+  "name": "perf-tests",
+  "private": true,
+  "description": "k6 performance tests scaffolded by the k6-perf-test-website skill",
+  "scripts": {
+    "//": "Add `record:wN-<short-name>` entries per workflow as you scaffold them, e.g.",
+    "//record:wN-<short-name>": "node recordings/scripts/wN-<short-name>.js"
+  },
+  "devDependencies": {
+    "har-to-k6": "^0.14.14",
+    "playwright": "^1.60.0"
+  }
+}
