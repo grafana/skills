@@ -5,8 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - 'skills/**/SKILL.md'
+    # Intentionally NO paths: filter — this workflow is a required status check
+    # in the main-branch ruleset. A paths-gated required check leaves non-skill
+    # PRs (e.g. Renovate digest bumps) in BLOCKED state forever because GitHub
+    # waits for a check that the trigger filter never fires. On PRs without a
+    # SKILL.md change the scan step's `if: steps.targets.outputs.dirs != ''`
+    # guard makes it a sub-second no-op pass.
 
 # Workflow defaults to no permissions; each job grants only what it needs.
 permissions: {}
