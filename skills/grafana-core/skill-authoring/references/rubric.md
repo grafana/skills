@@ -49,6 +49,16 @@ Tessl's `contentJudge` (the body-scoring half of the review) uses these four dim
 
 The code is the explanation. The prose around it was tax.
 
+### Trim multi-example lists to 1-2 inline + defer the rest
+
+When a section enumerates N variants of the same shape (receiver types / cloud providers / language SDKs / panel types / etc.), the judge consistently scores conciseness 2/3 if all N are inline. Reliable lift to 3/3:
+
+- Keep the **1-2 most-common** examples inline, in full
+- Move the rest to `references/<topic>.md` under a "Other X types" section, often with brief stub code + a list of remaining types
+- Link from the inline section: *"For email, webhook, Teams, … see [references/X.md § Other types](references/x.md#other-x-types)"*
+
+Concrete: in this repo, `alerting-irm` inlined four contact-point receiver types (PagerDuty, Slack, email, webhook). Conciseness stuck at 2/3. Trimming to PagerDuty + Slack inline and moving email + webhook to `references/alerting.md § Contact point receiver types` (with a list of the other 10+ supported types) lifted the score from 94 → 100 across 3 consecutive local runs.
+
 ## Actionability
 
 **What it scores:** Could Claude, reading this once, do the task copy-paste? Or does Claude have to fill gaps from its own knowledge?

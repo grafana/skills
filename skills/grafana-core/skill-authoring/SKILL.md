@@ -41,6 +41,14 @@ The `skill-review` CI workflow fails any PR where a touched SKILL.md scores belo
 
 For full per-dimension scoring and Anthropic-doc mapping, see [references/rubric.md](references/rubric.md).
 
+## Score variance — aim for headroom
+
+The Tessl judge is an LLM and **the same SKILL.md can score 7-10 points differently across runs** (CI vs. local CLI most commonly, but also run-to-run). Observed in this repo: `alerting-irm` scored 85 in CI immediately after scoring 94 in a local re-run, with zero content changes between them.
+
+Implication for the 75 gate: **a skill at 80 has effectively no safety margin** — one bad LLM roll lands it below the gate and blocks merge of unrelated PRs touching it.
+
+Operational rule: **target ≥90 locally, not 75 or 85**. The 15-point cushion above the gate absorbs CI's judge variance. When optimizing, don't stop at "above the gate" — push to ≥90 (and ideally 100 in 3 consecutive local runs).
+
 ## Decision tree for a new skill
 
 1. **What product / domain does this skill belong to?**
