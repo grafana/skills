@@ -3,8 +3,10 @@ name: Skill Review
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'skills/**/SKILL.md'
+    # Intentionally NO paths: filter — required-check + path-gated trigger
+    # would leave non-skill PRs BLOCKED forever (see agent-scan.yml for the
+    # full rationale). The tesslio/skill-review action auto-detects changed
+    # SKILL.md files internally and exits cleanly when none are present.
 
 # Workflow defaults to no permissions; each job grants only what it needs
 # (avoids zizmor/excessive-permissions on the workflow-wide block).
