@@ -6,7 +6,7 @@ description: Configure Grafana OSS — provisions dashboards from YAML, sets up 
 
 # Grafana OSS
 
-> **Docs**: https://grafana.com/docs/grafana/latest/
+> **Docs**: https://grafana.com/docs/grafana/latest.md
 
 ## Common Workflows
 
