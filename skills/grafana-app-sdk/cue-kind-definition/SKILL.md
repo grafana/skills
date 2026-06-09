@@ -45,8 +45,9 @@ cp kinds/mykind_v1alpha1.cue kinds/mykind_v1.cue
 # 4. Re-generate
 grafana-app-sdk generate
 
-# 5. Verify both versions in the generated CRD
-ls pkg/generated/manifest/   # should show types/clients for both versions
+# 5. Verify both versions were generated — per-version Go types live under pkg/generated/<group>/<version>/
+ls pkg/generated/             # should list both version directories (e.g. v1alpha1/ v1/)
+# Optionally inspect the CRD spec under definitions/ to confirm both versions appear in `spec.versions[]`
 ```
 
 **Breaking changes** (removing fields, changing types, adding required fields) must go into a new version — never modify a stable version (`v1`, `v2`) in place.
@@ -62,7 +63,7 @@ kinds/
 └── mykind_v1alpha1.cue    # v1alpha1 schema + codegen config
 ```
 
-For multi-version kinds, additional version files sit alongside (`mykind_v1.cue`, etc.). For very large kind sets (10+ kinds), consider the per-kind subdirectory layout described in [references/kind-layout.md § Multi-version layouts](references/kind-layout.md#multi-version-layouts).
+For multi-version kinds, additional version files sit alongside (`mykind_v1.cue`, etc.). For very large kind sets (10+ kinds), consider the per-kind subdirectory layout — full kind anatomy reference in [references/kind-layout.md](references/kind-layout.md).
 
 ## CUE Kind Anatomy
 
