@@ -143,7 +143,7 @@ After restart, verify via `GET /api/plugins/<plugin-id>/health`.
 
 ## References
 
-- [`references/dashboard-json.md`](references/dashboard-json.md) — full dashboard JSON model + template variables + common gotchas (uid uniqueness, gridPos arithmetic, datasource uid matching)
+- [`references/dashboard-json.md`](references/dashboard-json.md) — full dashboard JSON model + template variables + common problems (uid uniqueness, gridPos arithmetic, datasource uid matching)
 - [`references/panel-types.md`](references/panel-types.md) — panel-type table + decision guide for picking the right one
 - [`references/api.md`](references/api.md) — full Grafana OSS API reference (dashboards, data sources, users, service accounts, annotations) with verification curls and common failure modes
 - [`references/config.md`](references/config.md) — `grafana.ini` server / database / SMTP / auth / security / feature-toggle config + restart-required gotchas
