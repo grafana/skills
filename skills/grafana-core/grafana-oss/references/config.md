@@ -93,7 +93,7 @@ Multiple toggles are space-separated:
 enable = publicDashboards correlations grafanaApiServer
 ```
 
-## Common gotchas
+## Common problems
 
 - **`grafana.ini` changes need a restart** — config is read at startup, not live-reloaded
 - **`root_url` matters for OAuth callbacks** — if you set `domain` but not `root_url`, OAuth redirect URIs may not match
