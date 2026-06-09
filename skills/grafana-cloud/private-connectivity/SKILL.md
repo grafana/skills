@@ -79,15 +79,10 @@ Different provider, same shape: create the private endpoint → wait for approva
 
 | Scenario | Solution |
 |----------|----------|
-| Push metrics/logs/traces from AWS | AWS PrivateLink |
-| Push metrics/logs/traces from Azure | Azure Private Link |
-| Push metrics/logs/traces from GCP | GCP Private Service Connect |
+| Push from AWS | AWS PrivateLink |
+| Push from Azure | Azure Private Link |
+| Push from GCP | GCP Private Service Connect |
 | Query private DB / Prometheus from Grafana | Private Data Source Connect (PDC) — see [references/azure-gcp.md § PDC](references/azure-gcp.md#private-data-source-connect-pdc) |
-| On-premises with no cloud provider | Grafana Agent with TLS over internet |
-
-## Cost savings
-
-AWS PrivateLink eliminates `$0.09/GB` cross-region transfer + `$0.09/GB` internet transfer fees + potential NAT Gateway costs. At 100 GB/month of telemetry: ~$9-18/month saved per endpoint type. Multiply by the four signal types and the savings often exceed the PrivateLink endpoint hour cost within a single stack.
 
 ## References
 
