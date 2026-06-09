@@ -75,26 +75,9 @@ contactPoints:
         settings:
           url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
           channel: '#alerts'
-          username: Grafana
-          icon_emoji: ':grafana:'
-
-  - orgId: 1
-    name: email-alerts
-    receivers:
-      - uid: email-receiver
-        type: email
-        settings:
-          addresses: 'oncall@example.com;alerts@example.com'
-
-  - orgId: 1
-    name: webhook-alerts
-    receivers:
-      - uid: webhook-receiver
-        type: webhook
-        settings:
-          url: https://your-endpoint.com/grafana-alerts
-          httpMethod: POST
 ```
+
+For email, webhook, Teams, Telegram, OnCall, and other receiver types, see [references/alerting.md § Contact point receiver types](references/alerting.md#contact-point-receiver-types).
 
 ## Notification policies
 

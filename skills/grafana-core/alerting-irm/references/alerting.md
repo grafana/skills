@@ -7,6 +7,7 @@ Full YAML for the three rule types Grafana supports. The main SKILL.md keeps con
 - [Grafana-managed alert rule (YAML provisioning)](#grafana-managed-alert-rule-yaml-provisioning)
 - [Prometheus / Mimir alert rule (ruler)](#prometheus--mimir-alert-rule-ruler)
 - [Loki alert rule (LogQL)](#loki-alert-rule-logql)
+- [Contact point receiver types](#contact-point-receiver-types)
 - [Notification templates](#notification-templates)
 
 ## Grafana-managed alert rule (YAML provisioning)
@@ -115,6 +116,33 @@ groups:
         labels:
           severity: critical
 ```
+
+## Contact point receiver types
+
+SKILL.md shows PagerDuty + Slack inline. Other receiver types use the same shape under `receivers[].settings`:
+
+```yaml
+# Email
+- orgId: 1
+  name: email-alerts
+  receivers:
+    - uid: email-receiver
+      type: email
+      settings:
+        addresses: 'oncall@example.com;alerts@example.com'
+
+# Generic webhook
+- orgId: 1
+  name: webhook-alerts
+  receivers:
+    - uid: webhook-receiver
+      type: webhook
+      settings:
+        url: https://your-endpoint.com/grafana-alerts
+        httpMethod: POST
+```
+
+Other supported `type` values (full settings shape in [Grafana Alerting contact-point docs](https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/)): `teams`, `telegram`, `discord`, `opsgenie`, `victorops`, `sns`, `googlechat`, `line`, `wecom`, `kafka`, `oncall` (Grafana OnCall webhook).
 
 ## Notification templates
 
