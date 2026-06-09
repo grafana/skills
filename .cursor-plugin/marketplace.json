@@ -12,7 +12,7 @@
     {
       "name": "grafana-core",
       "source": "./",
-      "description": "Skills for core Grafana concepts \u2014 dashboards, panels, PromQL, visualization, alerting, Alloy, Beyla, and OpenTelemetry",
+      "description": "Skills for core Grafana concepts — dashboards, panels, PromQL, visualization, alerting, Alloy, Beyla, and OpenTelemetry",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -32,13 +32,14 @@
         "./skills/grafana-core/alloy",
         "./skills/grafana-core/beyla",
         "./skills/grafana-core/opentelemetry",
-        "./skills/grafana-core/alerting-irm"
+        "./skills/grafana-core/alerting-irm",
+        "./skills/grafana-core/skill-authoring"
       ]
     },
     {
       "name": "grafana-cloud",
       "source": "./",
-      "description": "Skills for Grafana Cloud \u2014 fleet management, cloud integrations, adaptive metrics, AI/ML, infrastructure monitoring, database observability, private connectivity, cost management, and account administration",
+      "description": "Skills for Grafana Cloud — fleet management, cloud integrations, adaptive metrics, AI/ML, infrastructure monitoring, database observability, private connectivity, cost management, and account administration",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -77,7 +78,7 @@
     {
       "name": "grafana-lgtm",
       "source": "./",
-      "description": "Skills for the LGTM open-source stack \u2014 Loki (logs), Grafana Tempo (traces), Grafana Mimir/Prometheus (metrics), and Grafana Pyroscope (profiles)",
+      "description": "Skills for the LGTM open-source stack — Loki (logs), Grafana Tempo (traces), Grafana Mimir/Prometheus (metrics), and Grafana Pyroscope (profiles)",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -102,7 +103,7 @@
     {
       "name": "grafana-plugins",
       "source": "./",
-      "description": "Skills for building Grafana plugins \u2014 bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -122,7 +123,7 @@
     {
       "name": "grafana-app-sdk",
       "source": "./",
-      "description": "Skills for building apps on the Grafana App Platform using grafana-app-sdk \u2014 CUE schemas, reconcilers, and admission control",
+      "description": "Skills for building apps on the Grafana App Platform using grafana-app-sdk — CUE schemas, reconcilers, and admission control",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -144,7 +145,7 @@
     {
       "name": "grafana-k6",
       "source": "./",
-      "description": "Skills for working with k6 \u2014 open-source load testing and performance testing",
+      "description": "Skills for working with k6 — open-source load testing and performance testing",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
