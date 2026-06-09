@@ -1,26 +1,39 @@
 ---
 name: reconciler-logic
 license: Apache-2.0
-description: Use when the user asks to "write a reconciler", "implement a reconciler", "add business logic", "handle resource changes", "process resource events", "implement the reconcile loop", "add async processing", "write a controller", "handle create/update/delete events", "use TypedReconciler", "use a Watcher", or asks how to respond to resource state changes in a grafana-app-sdk app. Provides guidance on implementing reconciler and watcher business logic for grafana-app-sdk apps.
+description: Implement reconcilers and watchers for grafana-app-sdk apps — write `TypedReconciler[*MyKind]` reconcile functions, apply generation-based skip patterns, do conflict-safe status updates via `resource.UpdateObject`, configure `BasicReconcileOptions` (namespace, label/field filters, finalizer management), use `Watcher` for event-style handling, reconcile `UnmanagedKinds` (resources your app doesn't own), and register the whole thing in `app.go`. Use when writing a reconciler, implementing the reconcile loop, adding async business logic, handling create/update/delete events, processing resource state changes, scheduling periodic resyncs with `RequeueAfter`, picking between Watcher and Reconciler, or wiring a controller into `app.go` — even when the user says "process this resource", "handle X events", or "write a controller" without saying "reconciler".
 ---
 
 # Reconciler Logic
 
-Reconcilers provide the asynchronous business logic layer of a grafana-app-sdk app. When a resource is created, updated, or deleted, the SDK enqueues a reconcile event. The reconciler's job is to observe the current state of the resource and take whatever actions are needed to drive the system toward the desired state.
+Reconcilers are the async business-logic layer of a grafana-app-sdk app. The SDK enqueues a reconcile event when a resource is created, updated, or deleted; the reconciler observes the current state and drives the system toward the desired state.
 
-Reconcilers run asynchronously after a resource has been persisted — they are distinct from admission handlers, which run synchronously on ingress.
+## Common Workflows
 
-## Getting Stubs
-
-For standalone apps, generate reconciler stubs with:
+### Implementing a new reconciler end-to-end
 
 ```bash
+# 1. Generate operator stubs for a standalone app
 grafana-app-sdk project component add operator
+
+# 2. Implement the ReconcileFunc — see § TypedReconciler below for the pattern
+
+# 3. Register the reconciler in app.go (see references/registration.md)
+
+# 4. Generate, build, and verify it runs
+grafana-app-sdk generate
+go build ./...
+go run ./cmd/operator   # tail logs — reconcile entries should appear when you kubectl-apply a resource
 ```
 
-## TypedReconciler — Preferred Pattern
+If the operator starts but no reconcile events fire when you create a resource:
+- Check `BasicReconcileOptions.Namespace` matches the resource's namespace
+- Check `BasicReconcileOptions.LabelFilters` / `FieldSelectors` — most "no events" issues are filter mismatches (`kubectl get <resource> -o yaml` to see labels)
+- Confirm the reconciler was attached to the right (latest) version of the kind
 
-The preferred implementation uses `operator.TypedReconciler`, which handles type assertion and provides a strongly-typed `ReconcileFunc`:
+## TypedReconciler — preferred pattern
+
+`operator.TypedReconciler` handles type assertion and provides a strongly-typed `ReconcileFunc`:
 
 ```go
 type MyKindReconciler struct {
@@ -41,21 +54,21 @@ func (r *MyKindReconciler) reconcile(
     obj := req.Object
 
     // Skip if already reconciled this generation
-    if obj.GetGeneration() == obj.Status.LastObservedGeneration && req.Action != operator.ReconcileActionDeleted {
+    if obj.GetGeneration() == obj.Status.LastObservedGeneration &&
+       req.Action != operator.ReconcileActionDeleted {
         return operator.ReconcileResult{}, nil
     }
 
     log := logging.FromContext(ctx).With("name", obj.GetName(), "namespace", obj.GetNamespace())
     log.Info("reconciling", "action", operator.ResourceActionFromReconcileAction(req.Action))
 
-    // Handle deletion
     if req.Action == operator.ReconcileActionDeleted {
         return operator.ReconcileResult{}, nil
     }
 
     // ... business logic ...
 
-    // Atomic status update with conflict resolution
+    // Atomic status update — see § Status updates below
     _, err := resource.UpdateObject(ctx, r.client, obj.GetStaticMetadata().Identifier(),
         func(obj *v1alpha1.MyKind, _ bool) (*v1alpha1.MyKind, error) {
             obj.Status.LastObservedGeneration = obj.GetGeneration()
@@ -68,17 +81,17 @@ func (r *MyKindReconciler) reconcile(
 }
 ```
 
-`operator.ReconcileAction` values: `ReconcileActionCreated`, `ReconcileActionUpdated`, `ReconcileActionDeleted`, `ReconcileActionResynced`.
+`ReconcileAction` values: `ReconcileActionCreated`, `ReconcileActionUpdated`, `ReconcileActionDeleted`, `ReconcileActionResynced`.
 
-To requeue a resource after a delay (e.g. for polling an external system), set `RequeueAfter` on the result:
+To requeue after a delay (e.g. polling an external system):
 
 ```go
 return operator.ReconcileResult{RequeueAfter: 10 * time.Second}, nil
 ```
 
-## Status Updates with `resource.UpdateObject`
+## Status updates with `resource.UpdateObject`
 
-Always use `resource.UpdateObject` for status updates — it handles conflicts by fetching the latest version before applying the update function, avoiding `409 Conflict` errors common when multiple reconcile events race:
+Always use `resource.UpdateObject` for status writes — it fetches the latest version before applying your update function, avoiding `409 Conflict` errors when multiple reconcile events race:
 
 ```go
 _, err := resource.UpdateObject(ctx, r.client, identifier,
@@ -94,7 +107,7 @@ _, err := resource.UpdateObject(ctx, r.client, identifier,
 
 Do **not** use `client.Update` for status — it sends the full object and races with spec changes made by users.
 
-## Generation-Based Skip
+## Generation-based skip
 
 Check `LastObservedGeneration` at the top of the reconcile function to avoid re-processing unchanged resources:
 
@@ -104,9 +117,9 @@ if obj.GetGeneration() == obj.Status.LastObservedGeneration {
 }
 ```
 
-## ReconcileOptions
+## `ReconcileOptions`
 
-Control how the informer watches resources via `BasicReconcileOptions` on the `AppManagedKind` entry:
+Control informer behavior via `BasicReconcileOptions` on the `AppManagedKind` entry:
 
 ```go
 {
@@ -116,107 +129,20 @@ Control how the informer watches resources via `BasicReconcileOptions` on the `A
         Namespace:      "my-namespace",          // watch one namespace; default is all
         LabelFilters:   []string{"env=prod"},    // only reconcile matching resources
         FieldSelectors: []string{"status.phase=Running"},
-        UsePlain:       false,                   // false = wrap in OpinionatedReconciler (default)
-                                                 // true  = use reconciler directly, no finalizer management
+        UsePlain:       false,                   // false = wrap in OpinionatedReconciler (default; manages finalizers)
     },
 },
 ```
 
-`UsePlain: false` (default) wraps your reconciler in the `OpinionatedReconciler`, which manages finalizers automatically to ensure clean deletion.
+`UsePlain: false` (the default) wraps your reconciler in `OpinionatedReconciler`, which manages finalizers automatically so the SDK can guarantee clean deletion.
 
-## Watcher — Alternative to Reconciler
+## References
 
-A `Watcher` receives distinct `Add`, `Update`, and `Delete` callbacks instead of a unified reconcile loop:
+- [`references/watchers.md`](references/watchers.md) — `Watcher` alternative (event-style Add/Update/Delete callbacks) + decision matrix for watcher vs reconciler
+- [`references/unmanaged-kinds.md`](references/unmanaged-kinds.md) — `UnmanagedKinds` for reconciling resources your app doesn't own, with `UseOpinionated: false` guidance and common failure modes
+- [`references/registration.md`](references/registration.md) — full `app.go` wiring (client setup, multi-version registration, `ValidateManifest`) + common failure modes
 
-```go
-type MyKindWatcher struct {
-    client resource.Client
-}
-
-func (w *MyKindWatcher) Add(ctx context.Context, obj resource.Object) error {
-    typed := obj.(*v1alpha1.MyKind)
-    // handle create
-    return nil
-}
-
-func (w *MyKindWatcher) Update(ctx context.Context, obj, old resource.Object) error {
-    typed := obj.(*v1alpha1.MyKind)
-    // handle update
-    return nil
-}
-
-func (w *MyKindWatcher) Delete(ctx context.Context, obj resource.Object) error {
-    // handle delete
-    return nil
-}
-
-func (w *MyKindWatcher) Sync(ctx context.Context, obj resource.Object) error {
-    // called on resync; handle like Add if needed
-    return nil
-}
-```
-
-Register with `Watcher` instead of `Reconciler` in `AppManagedKind`. Reconcilers are the preferred pattern; the default scaffolding still uses watchers.
-
-## UnmanagedKinds — Watching Related Resources
-
-To watch a kind your app doesn't own (e.g. a ConfigMap or a kind from another app), use `UnmanagedKinds` in `AppConfig`:
-
-```go
-UnmanagedKinds: []simple.AppUnmanagedKind{
-    {
-        Kind:       corev1.ConfigMapKind(),
-        Reconciler: &ConfigMapReconciler{},
-        ReconcileOptions: simple.UnmanagedKindReconcileOptions{
-            Namespace:      "my-namespace",
-            LabelFilters:   []string{"app=my-app"},
-            UseOpinionated: false, // don't add finalizers to unmanaged resources
-        },
-    },
-},
-```
-
-## Registration in app.go
-
-```go
-func New(cfg app.Config) (app.App, error) {
-    cfg.KubeConfig.APIPath = "/apis"
-
-    client, err := k8s.NewClientRegistry(cfg.KubeConfig, k8s.DefaultClientConfig()).
-        ClientFor(mykindv1alpha2.MyKindKind())
-    if err != nil {
-        return nil, fmt.Errorf("creating client: %w", err)
-    }
-
-    a, err := simple.NewApp(simple.AppConfig{
-        Name:       "my-app",
-        KubeConfig: cfg.KubeConfig,
-        ManagedKinds: []simple.AppManagedKind{
-            {
-                Kind:       mykindv1alpha1.MyKindKind(),
-                Validator:  NewValidator(),
-                Mutator:    NewMutator(),
-            },
-            {
-                // Attach reconciler to latest version only
-                Kind:       mykindv1alpha2.MyKindKind(),
-                Reconciler: NewMyKindReconciler(client),
-                Validator:  NewValidator(),
-                Mutator:    NewMutator(),
-            },
-        },
-    })
-    if err != nil {
-      return nil, fmt.Errorf("error creating app: %w", err)
-    }
-    if err = a.ValidateManifest(cfg.ManifestData); err != nil {
-        return nil, fmt.Errorf("app manifest validation failed: %w", err)
-    }
-    return a, nil
-}
-```
-
-## Resources
+## External resources
 
 - [grafana-app-sdk GitHub](https://github.com/grafana/grafana-app-sdk)
 - [operator package docs](https://pkg.go.dev/github.com/grafana/grafana-app-sdk/operator)
