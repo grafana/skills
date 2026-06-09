@@ -37,7 +37,7 @@ curl -sG --data-urlencode "match[]=http_requests_total" "$PROM/api/v1/series" | 
 
 ### 2. Common patterns to copy
 
-**Per-service request rate** (aggregate AFTER rate):
+**Per-status request rate** (aggregate AFTER rate):
 
 ```promql
 sum(rate(http_requests_total{job="api"}[5m])) by (status_code)

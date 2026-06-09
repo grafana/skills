@@ -34,7 +34,7 @@ docker run --privileged --pid=host \
 # 2. Generate some traffic
 curl http://localhost:8080/ ; curl http://localhost:8080/api/users/42
 
-# 3. Verify Beyla emitted metrics — should list http.server.request.duration_seconds + counters
+# 3. Verify Beyla emitted metrics — should list http_server_request_duration_seconds + counters
 curl -s http://localhost:8999/metrics | grep -E '^http_(server|client)_request_duration'
 
 # 4. Verify traces — in Grafana Explore on Tempo, search by service.name (default = process name)
