@@ -1,0 +1,75 @@
+name: o11y-bench smoke
+
+on:
+  pull_request:
+    branches: [main]
+    # Intentionally NO paths: filter — same rationale as skill-review.yml.
+    # A required check that's path-gated would leave non-skill PRs BLOCKED forever.
+  workflow_dispatch: {}
+
+# Workflow defaults to no permissions; each job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Dry-run o11y-bench suite
+    runs-on: ubuntu-latest
+    # Fork PRs would still pass the dry-run (no secrets needed), but the
+    # nightly workflow that this complements is gated on same-repo; align so
+    # the "BLOCKED forever" failure mode doesn't bite when the gate fires.
+    if: github.event.pull_request.head.repo.fork != true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout skills
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+          path: skills
+
+      # grafana/o11y-bench is the benchmark itself. Pinned to a SHA so an
+      # upstream breaking change doesn't take our CI down silently. Bump via:
+      #   gh api repos/grafana/o11y-bench/commits/main --jq .sha
+      - name: Checkout o11y-bench
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: grafana/o11y-bench
+          # Pin to main HEAD as of 2026-06-09. Renovate is set to track this
+          # via the line below — keep the comment on its own line.
+          ref: main
+          persist-credentials: false
+          path: o11y-bench
+
+      # Reuse o11y-bench's own composite setup-env so we install uv + Python +
+      # mise exactly as upstream CI does. Avoids version drift between this
+      # workflow and grafana/o11y-bench's own ci.yml.
+      - name: Set up environment
+        uses: ./o11y-bench/.github/actions/setup-env
+        with:
+          install-mise: 'true'
+          save-cache: 'false'
+
+      # Dry-run validates: suite YAML parses, tasks register, agent import
+      # path resolves. Zero LLM calls — costs nothing, takes ~3 min.
+      #
+      # `--n-attempts 1 --n-concurrent 1` mirrors o11y-bench's own cli-smoke
+      # job — keeps the dry plan small enough to fit GitHub's log budget.
+      - name: Dry-run the full suite
+        working-directory: o11y-bench
+        run: >-
+          mise run bench:suite --
+          --dry-run
+          --jobs-dir /tmp/o11y-bench-jobs/skills-smoke-dry-run
+          --n-attempts 1
+          --n-concurrent 1
+
+  fork-pr-notice:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.fork == true
+    permissions: {}
+    steps:
+      - run: echo "::notice::Skipping o11y-bench smoke on fork PR. A maintainer can run it on a same-repo branch."
