@@ -34,14 +34,18 @@ Pick the workflow that matches the user's intent:
 
 ## Validating examples (always run before committing)
 
-Every code example in k6 docs must execute cleanly against `k6@master`. The minimum loop:
+Every code example in k6 documentation **and release notes** must execute cleanly against `k6@master`. The minimum loop:
 
 ```bash
-# 1. cd into the k6 repo (not k6-docs)
+# 1. cd into the k6 repo (not k6-docs or k6-DefinitelyTyped)
 cd ~/path/to/k6
 
-# 2. Run each example as a separate command (no &&)
+# 2. Make sure you're on master at the latest commit (the contract is k6@master)
+git checkout master
+git pull
+
+# 3. Run each example as a separate command (no &&)
 go run . run /path/to/script.js
 ```
 
-If the run fails: read the error, fix the example in the doc, re-run. Do not commit a doc edit whose example doesn't run clean. For the full multi-example workflow with parallel subagents, see [references/testing-workflow.md](references/testing-workflow.md).
+If the run fails: read the error, fix the example in the source (doc or release note), re-run. Do not commit a change whose example doesn't run clean against current `master`. For the full multi-example workflow with parallel subagents, see [references/testing-workflow.md](references/testing-workflow.md).
