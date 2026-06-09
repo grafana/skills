@@ -6,7 +6,7 @@ description: Configure Grafana Alerting, Incident Response Management (IRM), and
 
 # Grafana Alerting & IRM
 
-> **Docs**: https://grafana.com/docs/grafana/latest/alerting/
+> **Docs**: https://grafana.com/docs/grafana/latest/alerting.md
 
 ## Common Workflows
 
