@@ -8,15 +8,6 @@ description: Author, audit, and improve Grafana SKILL.md files against Anthropic
 
 How to write, review, and improve SKILL.md files so they pass the repo's CI gate and score well against the Anthropic-aligned rubric Tessl uses.
 
-## When to use this skill
-
-- Creating a new skill (use the [decision tree](#decision-tree-for-a-new-skill) below)
-- A PR fails the `skill-review` workflow with a score below 75
-- An existing skill is technically passing but you want it ≥85 (the recommended baseline)
-- The description "isn't triggering" — agents skip past it when they should pick it up
-- SKILL.md is over 500 lines and starting to feel monolithic
-- Reviewing a teammate's skill PR
-
 ## Critical rules (always)
 
 1. **Description is the primary trigger** — third-person, ≤1024 chars, must include explicit "Use when..." phrasing AND list concrete trigger terms users naturally say. See [references/descriptions.md](references/descriptions.md) for the pushy-description pattern that combats undertriggering.
@@ -28,26 +19,13 @@ How to write, review, and improve SKILL.md files so they pass the repo's CI gate
 7. **No time-sensitive language in the body** — "after August 2025…" rots. Use an `<details>` "Old patterns" section for legacy info instead.
 8. **Validate before committing** — `./scripts/lint-skills.sh skills/<plugin>/<your-skill>` clean + Tessl score ≥75 (run `tessl skill review --json <dir>`).
 
-## The rubric this repo is graded against
+## The rubric
 
-The `skill-review` CI workflow fails any PR where a touched SKILL.md scores below **75**. Four dimensions, each 0-3:
-
-| Dimension | What it measures | Where to look in this skill |
-|---|---|---|
-| **Conciseness** | No content Claude already knows | [references/rubric.md § Conciseness](references/rubric.md#conciseness) |
-| **Actionability** | Concrete examples, imperative commands, copy-paste-ready | [references/rubric.md § Actionability](references/rubric.md#actionability) |
-| **Workflow clarity** | Numbered steps, validation checkpoints, feedback loops | [references/rubric.md § Workflow clarity](references/rubric.md#workflow-clarity) |
-| **Progressive disclosure** | Three-level loading (metadata / SKILL.md / bundle) | [references/rubric.md § Progressive disclosure](references/rubric.md#progressive-disclosure) |
-
-For full per-dimension scoring and Anthropic-doc mapping, see [references/rubric.md](references/rubric.md).
+CI fails any PR where a touched SKILL.md scores below **75** on four 0-3 dimensions: **conciseness**, **actionability**, **workflow clarity**, **progressive disclosure**. Full per-dimension scoring + Anthropic-doc mapping in [references/rubric.md](references/rubric.md).
 
 ## Score variance — aim for headroom
 
-The Tessl judge is an LLM and **the same SKILL.md can score 7-10 points differently across runs** (CI vs. local CLI most commonly, but also run-to-run). Observed in this repo: `alerting-irm` scored 85 in CI immediately after scoring 94 in a local re-run, with zero content changes between them.
-
-Implication for the 75 gate: **a skill at 80 has effectively no safety margin** — one bad LLM roll lands it below the gate and blocks merge of unrelated PRs touching it.
-
-Operational rule: **target ≥90 locally, not 75 or 85**. The 15-point cushion above the gate absorbs CI's judge variance. When optimizing, don't stop at "above the gate" — push to ≥90 (and ideally 100 in 3 consecutive local runs).
+The Tessl judge is an LLM and can swing 7-10 points run-to-run (CI vs. local most commonly). At 80 you have no safety margin: one bad roll lands below the 75 gate and blocks unrelated PRs. **Target ≥90 locally**, ideally 100 across three consecutive runs.
 
 ## Decision tree for a new skill
 
@@ -106,18 +84,9 @@ Operational rule: **target ≥90 locally, not 75 or 85**. The 15-point cushion a
 
 4. Re-score and iterate. The `--max-iterations 3` flag on `--optimize` is the default budget; raise to 5-10 for stubborn cases.
 
-## Anti-patterns to avoid
+## Anti-patterns
 
-- **Vague descriptions** ("Helps with metrics", "Does stuff with files") — agents won't trigger.
-- **First-person voice** ("I can help you process Excel") — Anthropic explicitly calls this out; use third-person.
-- **`MUST` / `ALWAYS` / `NEVER` everywhere** — reserve for genuine hard constraints. Otherwise explain *why*.
-- **Time-sensitive phrasing** in the body — "Before August 2025…" rots.
-- **Windows-style paths** (`scripts\helper.py`) — always use forward slashes.
-- **Dangling references** — `[see references/x.md](references/x.md)` where the file doesn't exist. The linter doesn't catch this; reviewers should.
-- **Inlining content during `--optimize`** when the skill was deliberately a routing layer (see [references/anatomy.md § When NOT to inline](references/anatomy.md#when-not-to-inline)).
-- **Skipping the marketplace registration** — the skill exists on disk but isn't installable via any plugin marketplace.
-
-For a longer list with examples, see [references/anti-patterns.md](references/anti-patterns.md).
+Full list with examples in [references/anti-patterns.md](references/anti-patterns.md). The most common ones beyond the Critical rules: overusing `MUST`/`ALWAYS`/`NEVER`, Windows-style paths, dangling references to non-existent files, inlining content during `--optimize` on a routing skill, skipping marketplace registration.
 
 ## References
 
