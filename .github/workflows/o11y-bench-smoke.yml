@@ -44,14 +44,28 @@ jobs:
           persist-credentials: false
           path: o11y-bench
 
-      # Reuse o11y-bench's own composite setup-env so we install uv + Python +
-      # mise exactly as upstream CI does. Avoids version drift between this
-      # workflow and grafana/o11y-bench's own ci.yml.
-      - name: Set up environment
-        uses: ./o11y-bench/.github/actions/setup-env
+      # We can't use o11y-bench's own composite setup-env directly because it
+      # runs `uv sync` in the workflow's working-directory (= this repo's
+      # checkout root), but pyproject.toml lives under ./o11y-bench/. Inline
+      # the same three steps with an explicit working-directory on uv sync.
+      # Pins copied verbatim from o11y-bench/.github/actions/setup-env/action.yml.
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          install-mise: 'true'
+          enable-cache: true
+          cache-python: true
+          python-version: '3.14'
           save-cache: 'false'
+
+      - name: Install mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          cache: false
+          install: false
+
+      - name: Sync uv deps
+        working-directory: o11y-bench
+        run: uv sync --locked --all-groups
 
       # Dry-run validates: suite YAML parses, tasks register, agent import
       # path resolves. Zero LLM calls — costs nothing, takes ~3 min.
