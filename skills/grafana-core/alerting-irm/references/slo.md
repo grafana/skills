@@ -34,7 +34,7 @@ groups:
 
 ## Multi-window burn-rate alerts (recommended)
 
-The single 1h-window check above fires on transient noise. Better to require burn rate above threshold in BOTH a short window (1h) AND a long window (6h):
+The single 1h-window check above fires on transient noise. Better to require burn rate above threshold in BOTH a long window (1h, the "sustained" signal) AND a short window (5m, the "still burning right now" signal):
 
 ```yaml
 - alert: SLOBurnRateFast
@@ -47,7 +47,7 @@ The single 1h-window check above fires on transient noise. Better to require bur
     severity: critical
 ```
 
-The `and` ensures a sustained-burn signal, not a single 5m spike.
+The `and` filters out: (a) a single 5m spike that wasn't actually a sustained issue (1h window stays low), and (b) a slow burn that already recovered (5m window now low). This is the Google SRE "multi-window, multi-burn-rate" pattern — see [SRE Workbook ch. 5](https://sre.google/workbook/alerting-on-slos/).
 
 ## Validating SLO config
 

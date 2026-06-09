@@ -68,7 +68,7 @@ api_url = https://your-org.okta.com/oauth2/v1/userinfo
 scopes = openid profile email groups
 ```
 
-For SAML and GitHub OAuth, see the [grafana-cloud/admin skill](../../grafana-cloud/admin/references/sso.md). The configs are the same in OSS.
+For SAML and GitHub OAuth, see the [grafana-cloud/admin skill](../../../grafana-cloud/admin/references/sso.md). The configs are the same in OSS.
 
 ## Security
 

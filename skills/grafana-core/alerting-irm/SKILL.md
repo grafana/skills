@@ -101,7 +101,7 @@ contactPoints:
 Hierarchical routing tree with label matchers:
 
 ```yaml
-# provisioning/alerting/policies.yaml
+# provisioning/alerting/notification_policies.yaml
 apiVersion: 1
 policies:
   - orgId: 1

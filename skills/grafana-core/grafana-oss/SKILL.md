@@ -122,7 +122,7 @@ serviceAccounts:
     role: Viewer
     tokens:
       - name: ci-token
-        expires: 2025-01-01T00:00:00Z
+        # expires: optional ISO 8601 timestamp; omit for no-expiry tokens
 ```
 
 (Custom RBAC roles with fine-grained permissions are Enterprise / Cloud only — see the `grafana-cloud/admin` skill if you need those.)
