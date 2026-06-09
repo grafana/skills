@@ -84,7 +84,7 @@ Tessl's rubric penalizes routing documents (a thin SKILL.md that defers to refer
 
 Concrete example — `grafana-k6/k6-docs` (33 lines in its SKILL.md):
 
-```markdown
+````markdown
 ## Workflow
 
 Pick the workflow that matches the user's intent:
@@ -96,17 +96,17 @@ Pick the workflow that matches the user's intent:
 
 Every code example in k6 documentation and release notes must execute cleanly against `k6@master`:
 
-​```bash
+```bash
 cd ~/path/to/k6
 git checkout master
 git pull
 go run . run /path/to/script.js
-​```
+```
 
 If the run fails: read the error, fix the source, re-run. Don't commit a doc edit whose
 example doesn't run clean. For the full multi-example workflow with parallel subagents,
 see [references/testing-workflow.md](references/testing-workflow.md).
-```
+````
 
 This pattern (the file lifted its score from 72 → 100):
 1. Keeps the routing layer + bundle architecture
