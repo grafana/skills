@@ -6,7 +6,7 @@ description: Manage Grafana Cloud accounts — organizations, stacks, RBAC roles
 
 # Grafana Cloud Admin
 
-> **Docs**: https://grafana.com/docs/grafana-cloud/account-management/
+> **Docs**: https://grafana.com/docs/grafana-cloud/account-management.md
 
 ## Common Workflows
 
