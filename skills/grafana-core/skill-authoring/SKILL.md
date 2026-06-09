@@ -23,9 +23,9 @@ How to write, review, and improve SKILL.md files so they pass the repo's CI gate
 
 CI fails any PR where a touched SKILL.md scores below **75** on four 0-3 dimensions: **conciseness**, **actionability**, **workflow clarity**, **progressive disclosure**. Full per-dimension scoring + Anthropic-doc mapping in [references/rubric.md](references/rubric.md).
 
-## Score variance — aim for headroom
+## Score variance
 
-The Tessl judge is an LLM and can swing 7-10 points run-to-run (CI vs. local most commonly). At 80 you have no safety margin: one bad roll lands below the 75 gate and blocks unrelated PRs. **Target ≥90 locally**, ideally 100 across three consecutive runs.
+The judge is an LLM and swings 7-10 points run-to-run. Local 94 commonly lands at CI 85. **Ship only on three consecutive local 100s.**
 
 ## Decision tree for a new skill
 
@@ -68,25 +68,25 @@ The Tessl judge is an LLM and can swing 7-10 points run-to-run (CI vs. local mos
 
 ## Fixing a low-scoring existing skill
 
-1. Get the per-dimension scores + suggestions:
+1. Read the judge's verbatim Suggestions text (non-JSON output):
    ```bash
-   tessl skill review --json skills/<plugin>/<name> \
-     | jq '{score: .review.reviewScore, scores: .contentJudge.evaluation.scores, suggestions: .contentJudge.evaluation.suggestions}'
+   tessl skill review skills/<plugin>/<name>
    ```
+   The `Suggestions:` block under each dimension names the exact sentences/sections to cut. **Copy the suggestion** — don't guess. Then verify the lowest dimension matches your read.
 
-2. Pick the lowest-scoring dimension and apply the fix pattern from [references/rubric.md](references/rubric.md):
-   - **Conciseness 1-2** → cut intros, definitions, "what X is" paragraphs
+2. Apply the fix pattern from [references/rubric.md](references/rubric.md):
+   - **Conciseness 1-2** → cut intros, definitions, multi-line tables that mostly point to refs
    - **Actionability 1-2** → replace prose with code blocks and CLI commands
    - **Workflow clarity 1-2** → add numbered steps + validation checkpoints
    - **Progressive disclosure 1-2** → split into `references/*.md`
 
-3. If the skill is **intentionally a routing document** (like `grafana-k6/k6-docs`), don't let `--optimize` inline the bundle back into SKILL.md. Hand-craft: add a minimal copy-paste-ready "validation loop" inline so SKILL.md is independently actionable, but keep the references for the full procedural detail.
+3. If the skill is **intentionally a routing document** (like `grafana-k6/k6-docs`), don't let `--optimize` inline the bundle back into SKILL.md. Hand-craft a minimal copy-paste "validation loop" inline so SKILL.md is independently actionable, while preserving the bundle.
 
-4. Re-score and iterate. The `--max-iterations 3` flag on `--optimize` is the default budget; raise to 5-10 for stubborn cases.
+4. Re-score five times locally. **Don't stop until all five runs hit 100** — see "Score variance" above for why.
 
 ## Anti-patterns
 
-Full list with examples in [references/anti-patterns.md](references/anti-patterns.md). The most common ones beyond the Critical rules: overusing `MUST`/`ALWAYS`/`NEVER`, Windows-style paths, dangling references to non-existent files, inlining content during `--optimize` on a routing skill, skipping marketplace registration.
+See [references/anti-patterns.md](references/anti-patterns.md).
 
 ## References
 
