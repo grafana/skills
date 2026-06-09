@@ -1,31 +1,30 @@
 ---
 name: pyroscope
 license: Apache-2.0
-description: >
-  Grafana Pyroscope continuous profiling platform. Covers instrumentation of Go/Java/Python/Ruby/Node.js/
-  .NET/Rust apps via SDKs or eBPF (Alloy), flame graph analysis, ProfileQL queries, server configuration
-  and architecture, Grafana Cloud Profiles integration, and trace-profile linking (Span Profiles).
-  Use when working with profiling data, instrumenting apps for Pyroscope, analyzing performance profiles,
-  or deploying Pyroscope server.
+description: Continuously profile applications with Grafana Pyroscope and read the result as flame graphs. Covers three instrumentation paths — language SDK push (Go / Java / Python / Ruby / Node / .NET / Rust), Alloy eBPF auto-instrumentation (no code change, requires kernel 5.8+ with BTF), and SDK → Alloy receiver — plus ProfileQL queries, profile types (CPU / memory / allocations / goroutines / mutex), Grafana Cloud Profiles endpoint, and Span Profiles trace-to-profile linking. Use when adding profiling to a service, deploying Alloy as a cluster-wide eBPF profiler, hunting CPU / memory hotspots from a flame graph, comparing two profiles to find a regression, or correlating a slow Tempo trace to its profile — even when the user says "find what's burning CPU", "flame graph this app", "continuous profiling", "heap hotspots", or "why is allocation so high" without naming Pyroscope.
 ---
 
-# Grafana Pyroscope - Continuous Profiling
+# Grafana Pyroscope
 
 > **Docs**: https://grafana.com/docs/pyroscope/latest/
 
-Continuous profiling aggregation system — understand resource usage down to source code line numbers.
+Continuous profiling — flame graphs of CPU, memory, allocations, mutex contention, goroutines.
 
-## Instrumentation Methods
+## Prerequisites
 
-Three ways to send profiles to Pyroscope:
+- Pyroscope server (OSS) or Grafana Cloud Profiles endpoint
+- For Cloud: numeric Pyroscope user (stack id) + API key
+- For eBPF via Alloy: root + host PID + Linux ≥ 5.8 with BTF (or RHEL 4.18+)
 
-1. **Grafana Alloy (preferred)**: eBPF auto-instrumentation, no code changes
-2. **SDK**: Push profiles directly from your application
-3. **SDK → Alloy**: SDK sends to Alloy's `pyroscope.receive_http`, Alloy forwards to Pyroscope
+## Instrumentation paths
 
-## SDK Examples
+1. **Alloy eBPF** (preferred) — auto-instrument, no code change
+2. **SDK direct push** — application calls Pyroscope API
+3. **SDK → Alloy** — SDK posts to `pyroscope.receive_http`, Alloy forwards
 
-### Python
+## Common Workflows
+
+### 1. Instrument an app with the SDK (representative: Python)
 
 ```bash
 pip install pyroscope-io==1.0.11
@@ -33,239 +32,80 @@ pip install pyroscope-io==1.0.11
 
 ```python
 import pyroscope, os
-
 pyroscope.configure(
-    application_name = "my.python.app",
-    server_address   = "http://pyroscope:4040",
-    sample_rate      = 100,
-    oncpu            = True,
-    tags             = {"region": os.getenv("REGION"), "env": "prod"},
+    application_name="my.python.app",
+    server_address="http://pyroscope:4040",
+    sample_rate=100, oncpu=True,
+    tags={"region": os.getenv("REGION"), "env": "prod"},
 )
-
-# Dynamic labels for specific code sections
+# Dynamic tag for a hot path
 with pyroscope.tag_wrapper({"controller": "slow_controller"}):
     slow_code()
 ```
 
-**Grafana Cloud:**
-```python
-pyroscope.configure(
-    application_name   = "my.python.app",
-    server_address     = "https://profiles-prod-xxx.grafana.net",
-    basic_auth_username = "123456",
-    basic_auth_password = os.getenv("GRAFANA_API_KEY"),
-)
-```
-
-### Java
-
-```xml
-<!-- Maven -->
-<dependency>
-  <groupId>io.pyroscope</groupId>
-  <artifactId>agent</artifactId>
-  <version>2.1.2</version>
-</dependency>
-```
-
-```java
-// Method 1: Application code
-PyroscopeAgent.start(
-    new Config.Builder()
-        .setApplicationName("my-java-app")
-        .setProfilingEvent(EventType.ITIMER)
-        .setFormat(Format.JFR)           // required for multiple events
-        .setServerAddress("http://pyroscope:4040")
-        .build()
-);
-
-// Dynamic labels
-Pyroscope.LabelsWrapper.run(new LabelsSet("controller", "slow_controller"), () -> {
-    slowCode();
-});
-```
-
 ```bash
-# Method 2: Java Agent (no code changes)
-export PYROSCOPE_APPLICATION_NAME=my.java.app
-export PYROSCOPE_SERVER_ADDRESS=http://pyroscope:4040
-java -javaagent:pyroscope.jar -jar app.jar
+# Verify the app is pushing — Pyroscope ingests samples in a few seconds
+curl -s http://pyroscope:4040/ready                                    # → "ready"
+curl -s http://pyroscope:4040/api/v1/labels | jq '.data | index("service_name")'  # → not null
+
+# Verify the service shows up in Grafana → Explore → Profiles → service dropdown.
 ```
 
-**Key Java config:**
+Other SDKs (Java agent, Node, Ruby, .NET, Rust) + Cloud auth + tunable env vars: [`references/sdks.md`](references/sdks.md).
 
-| Env Var | Description | Default |
-|---------|-------------|---------|
-| `PYROSCOPE_FORMAT` | `jfr` for multiple events | `collapsed` |
-| `PYROSCOPE_PROFILER_EVENT` | `itimer`, `cpu`, `wall` | `itimer` |
-| `PYROSCOPE_PROFILER_ALLOC` | Allocation bytes threshold; `0` = all | disabled |
-| `PYROSCOPE_PROFILER_LOCK` | Lock contention threshold (ns) | disabled |
-| `PYROSCOPE_UPLOAD_INTERVAL` | Upload frequency | `10s` |
-
-### Node.js
-
-```bash
-npm install @pyroscope/nodejs
-```
-
-```javascript
-const Pyroscope = require('@pyroscope/nodejs');
-
-Pyroscope.init({
-    serverAddress: 'http://pyroscope:4040',
-    appName: 'my-node-service',
-    tags: { region: process.env.REGION },
-    basicAuthUser: process.env.PYROSCOPE_USER,
-    basicAuthPassword: process.env.PYROSCOPE_PASSWORD,
-    flushIntervalMs: 60000,
-});
-Pyroscope.start();
-
-// Dynamic labels
-Pyroscope.wrapWithLabels({ vehicle: 'bike' }, () => slowCode());
-```
-
-### Ruby
-
-```bash
-bundle add pyroscope
-```
-
-```ruby
-require 'pyroscope'
-
-Pyroscope.configure do |config|
-  config.application_name = "my.ruby.app"
-  config.server_address   = "http://pyroscope:4040"
-  config.tags = { hostname: ENV["HOSTNAME"] }
-end
-
-# Dynamic tags
-Pyroscope.tag_wrapper({ controller: "slow_controller" }) do
-  slow_code
-end
-```
-
-### .NET
-
-```bash
-# System requirements: Linux amd64, .NET 6+
-export PYROSCOPE_APPLICATION_NAME=my.dotnet.app
-export PYROSCOPE_SERVER_ADDRESS=http://pyroscope:4040
-export PYROSCOPE_PROFILING_ENABLED=1
-export CORECLR_ENABLE_PROFILING=1
-export CORECLR_PROFILER={BD1A650D-AC5D-4896-B64F-D6FA25D6B26A}
-export CORECLR_PROFILER_PATH=/dotnet/Pyroscope.Profiler.Native.so
-export LD_PRELOAD=/dotnet/Pyroscope.Linux.ApiWrapper.x64.so
-```
-
-```csharp
-// Dynamic labels
-var labels = Pyroscope.LabelSet.Empty.BuildUpon()
-    .Add("controller", "slow")
-    .Build();
-Pyroscope.LabelsWrapper.Do(labels, () => SlowCode());
-```
-
-### Rust
-
-```bash
-cargo add pyroscope pyroscope_pprofrs
-```
-
-```rust
-let pprof_config = PprofConfig::new().sample_rate(100);
-let agent = PyroscopeAgent::builder("http://pyroscope:4040", "my-rust-app")
-    .backend(pprof_backend(pprof_config))
-    .tags([("env", "prod"), ("region", "us-east")].to_vec())
-    .basic_auth(user, password)
-    .build()?;
-let agent_running = agent.start().unwrap();
-// ... app runs ...
-let agent_ready = agent_running.stop().unwrap();
-agent_ready.shutdown();
-```
-
-## eBPF Auto-Instrumentation via Alloy
-
-No code changes needed. Supports: C/C++, Go, Rust, Java (Hotspot JVM), Python, Ruby, Node.js, PHP, .NET, V8.
+### 2. Cluster-wide eBPF profiling with Alloy
 
 ```alloy
-discovery.kubernetes "all_pods" {
-  role = "pod"
-  selectors {
-    field = "spec.nodeName=" + sys.env("HOSTNAME")
-  }
-}
-
-discovery.relabel "local_pods" {
-  targets = discovery.kubernetes.all_pods.targets
-  rule {
-    source_labels = ["__meta_kubernetes_namespace"]
-    target_label  = "namespace"
-  }
-}
-
+# config.alloy — full block in references/ebpf-and-query.md
 pyroscope.ebpf "local_pods" {
-  forward_to     = [pyroscope.write.cloud.receiver]
-  targets        = discovery.relabel.local_pods.output
-  sample_rate    = 97          // samples per second
+  forward_to       = [pyroscope.write.cloud.receiver]
+  targets          = discovery.relabel.local_pods.output
+  sample_rate      = 97
   collect_interval = "15s"
 }
-
 pyroscope.write "cloud" {
   endpoint {
     url = "https://profiles-prod-xxx.grafana.net"
-    basic_auth {
-      username = sys.env("PYROSCOPE_USER")
-      password = sys.env("GRAFANA_API_KEY")
-    }
+    basic_auth { username = sys.env("PYROSCOPE_USER")
+                 password = sys.env("GRAFANA_API_KEY") }
   }
 }
 ```
 
-Requirements for eBPF:
-- Run Alloy as root, in host PID namespace
-- Linux 5.8+ with BTF enabled (or RHEL 4.18+)
+```bash
+# 1. Reload Alloy
+curl -X POST http://localhost:12345/-/reload
 
-## ProfileQL Queries
+# 2. Verify the eBPF component is healthy
+curl -s http://localhost:12345/api/v0/web/components \
+  | jq '.[] | select(.id|contains("pyroscope.ebpf")) | {id,health:.health.state}'
+# Expect: health.state == "healthy"
+
+# 3. Verify profiles arriving in Pyroscope
+#    Grafana → Explore → Profiles datasource → query:
+#      {namespace="default", __profile_type__="process_cpu:cpu:nanoseconds:cpu:nanoseconds"}
+#    Expect flame graph to render with frames from the target pods.
+```
+
+### 3. Query with ProfileQL
 
 ```
-# All CPU profiles for a service
-{service_name="myapp", __profile_type__="process_cpu:cpu:nanoseconds:cpu:nanoseconds"}
-
-# Filter by label
-{service_name="myapp", env="prod"}
-
-# Profile types format: <type>:<value_type>:<value_unit>:<span_name>:<span_unit>
+{service_name="myapp", env="prod",
+ __profile_type__="process_cpu:cpu:nanoseconds:cpu:nanoseconds"}
 ```
 
-**Common profile types:**
-- `process_cpu:cpu:nanoseconds:cpu:nanoseconds` - CPU time
-- `memory:inuse_space:bytes:space:bytes` - Heap in use
-- `memory:alloc_space:bytes:space:bytes` - Heap allocations
-- `goroutine:goroutine:count::` - Goroutine count (Go)
-- `mutex:contentions:count::` - Mutex contentions
+Profile-type list + full ProfileQL grammar: [`references/ebpf-and-query.md`](references/ebpf-and-query.md).
 
-## Profile Types by Language
+## Troubleshooting
 
-| Language | CPU | Memory | Goroutines | Allocations |
-|----------|-----|--------|------------|-------------|
-| Go | ✓ | ✓ | ✓ | ✓ |
-| Java | ✓ | ✓ | ✓ | ✓ |
-| Python | ✓ | - | - | - |
-| Node.js | ✓ | ✓ | - | ✓ |
-| Ruby | ✓ | ✓ | - | - |
-| .NET | ✓ | ✓ | - | ✓ |
-| Rust | ✓ | - | - | - |
-| eBPF | ✓ | - | - | - |
+- SDK starts but no flame graph → check the app actually called `start()` / `configure()` (some SDKs are lazy); check `server_address` reachable from inside the container
+- Alloy eBPF component `unhealthy` with BPF errors → kernel < 5.8 or BTF missing; `ls /sys/kernel/btf/vmlinux`
+- Cloud push 401 → wrong `basic_auth_username` (must be the numeric stack id, not the slug)
+- Profile shows up but with no frames → for Java, set `PYROSCOPE_FORMAT=jfr`; for Python on Alpine, ensure `procfs` and `glibc` compatibility
 
-## Tag Rules
+## Resources
 
-Valid tags: `[a-zA-Z_][a-zA-Z0-9_]*` — periods NOT allowed.
-
-## References
-
-- [SDKs Reference](references/sdks.md)
-- [ProfileQL](references/profileql.md)
-- [Server Config](references/server-config.md)
+- [Pyroscope docs](https://grafana.com/docs/pyroscope/latest/)
+- [Grafana Cloud Profiles](https://grafana.com/docs/grafana-cloud/monitor-applications/profiles/)
+- [`references/sdks.md`](references/sdks.md) — Java/Node/Ruby/.NET/Rust install + config + env-var table + profile-type matrix
+- [`references/ebpf-and-query.md`](references/ebpf-and-query.md) — full Alloy eBPF pipeline + ProfileQL
