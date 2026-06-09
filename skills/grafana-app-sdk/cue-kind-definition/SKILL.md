@@ -6,8 +6,6 @@ description: Author CUE kind definitions for grafana-app-sdk apps - schemas, ver
 
 # CUE Kind Definition
 
-Kinds drive the entire grafana-app-sdk code generation pipeline. Each kind describes a Kubernetes-style resource type: its name, versions, and per-version schema. Go types, TypeScript types, API clients, CRD manifests, and the AppManifest are all generated from these CUE files.
-
 ## Common Workflows
 
 ### Adding a new kind
@@ -135,11 +133,6 @@ codegen: {
 ```
 
 Disabling `go` for frontend-only apps avoids unused Go code. Disabling `ts` for backend-only resources reduces bundle size. Both default to `true` when omitted.
-
-## Version compatibility rules
-
-- The `kind` field is identical across versions; only `schema` differs.
-- Breaking changes (removing fields, changing types, adding required fields) go into a **new** version — never modify a stable `v1`/`v2` in place.
 
 ## References
 
