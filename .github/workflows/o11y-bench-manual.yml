@@ -1,0 +1,176 @@
+name: o11y-bench manual
+
+# Manually-triggered only. PR triggers (and the dry-run smoke they backed)
+# were removed because the goal is to validate real agent behaviour against
+# this repo's skills — a dry run doesn't do that. Restore a PR-gated dry-run
+# job here if a future need surfaces.
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task slug (see o11ybench.ai/tasks)'
+        required: true
+        default: 'query-cpu-metrics'
+      model:
+        description: 'LiteLLM model id'
+        required: true
+        default: 'anthropic/claude-haiku-4-5-20251001'
+      agent:
+        description: 'Harbor agent shortcut (opencode, claude-code) or import path agents.X:Y'
+        required: true
+        default: 'opencode'
+      n_attempts:
+        description: 'Attempts per task (Pass^N is over 3; use 1 for a quick smoke)'
+        required: true
+        default: '1'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false   # let parallel manual runs co-exist
+
+jobs:
+  run:
+    name: 'Run: ${{ inputs.task }} on ${{ inputs.model }} (${{ inputs.agent }})'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write   # Vault OIDC
+    steps:
+      - name: Checkout skills
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+          path: skills
+
+      - name: Checkout o11y-bench
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: grafana/o11y-bench
+          # Pin to main HEAD as of 2026-06-09. Bump via:
+          #   gh api repos/grafana/o11y-bench/commits/main --jq .sha
+          ref: main
+          persist-credentials: false
+          path: o11y-bench
+
+      # Match grafana-cloud/.github/workflows/claude-code-review.yml — same
+      # Vault path so we share the existing org-level secret rotation.
+      - name: Get ANTHROPIC_API_KEY from Vault
+        id: vault
+        uses: grafana/shared-workflows/actions/get-vault-secrets@f1614b210386ac420af6807a997ac7f6d96e477a # get-vault-secrets/v1.3.1
+        with:
+          vault_instance: dev
+          repo_secrets: |
+            ANTHROPIC_API_KEY=anthropic-token:token
+
+      # Pins copied verbatim from o11y-bench/.github/actions/setup-env/action.yml
+      # — we don't reuse that composite because it runs `uv sync` at the wrong
+      # cwd. Keeping versions identical avoids drift with upstream CI.
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+          cache-python: true
+          python-version: '3.14'
+          save-cache: 'false'
+
+      - name: Install mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          cache: false
+          install: false
+
+      - name: Sync uv deps
+        working-directory: o11y-bench
+        run: uv sync --locked --all-groups
+
+      - name: Sync task specs
+        working-directory: o11y-bench
+        run: mise run setup:sync
+
+      # Install this repo's skills into ~/.agents/skills/ — the path opencode
+      # and other .agents-compatible harnesses auto-load from. Mirrors the
+      # layout produced by `gcx agent skills install` (flat: one dir per
+      # skill, named after the skill's directory basename — NOT plugin-grouped).
+      #
+      # Skill names are unique across plugins in this repo (verified — see
+      # .agents-plugin/marketplace.json), so flattening is safe.
+      - name: Install grafana/skills into ~/.agents/skills
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.agents/skills"
+          installed=0
+          for skill_dir in skills/skills/*/*/; do
+            [[ -f "${skill_dir}SKILL.md" ]] || continue
+            skill_name=$(basename "$skill_dir")
+            target="$HOME/.agents/skills/$skill_name"
+            if [[ -e "$target" ]]; then
+              echo "::warning::Skill name collision on '$skill_name'; second copy from $skill_dir ignored"
+              continue
+            fi
+            cp -r "$skill_dir" "$target"
+            installed=$((installed + 1))
+          done
+          echo "Installed $installed skills:"
+          ls -1 "$HOME/.agents/skills/"
+
+      # The agent input accepts either a Harbor shortcut (e.g. `opencode`) or
+      # a full import path (e.g. `agents.gcx_opencode_agent:GcxOpenCodeAgent`).
+      # `--agent-import-path` only accepts the latter, so route via a bash
+      # branch on `:`.
+      - name: Run benchmark task
+        working-directory: o11y-bench
+        env:
+          ANTHROPIC_API_KEY: ${{ fromJSON(steps.vault.outputs.secrets).ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          AGENT_INPUT='${{ inputs.agent }}'
+          if [[ "$AGENT_INPUT" == *:* ]]; then
+            AGENT_FLAG=(--agent-import-path "$AGENT_INPUT")
+          else
+            AGENT_FLAG=(--agent "$AGENT_INPUT")
+          fi
+          mise run bench:job -- \
+            --model "${{ inputs.model }}" \
+            --task-name "${{ inputs.task }}" \
+            "${AGENT_FLAG[@]}" \
+            --n-attempts "${{ inputs.n_attempts }}" \
+            --n-concurrent 1 \
+            --job-name "manual-${GITHUB_RUN_ID}-${{ inputs.task }}" \
+            --jobs-dir /tmp/o11y-bench-jobs
+
+      - name: Summarize result to job summary
+        if: always()
+        run: |
+          set +e
+          shopt -s nullglob globstar
+          {
+            echo "## o11y-bench manual run"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Task | \`${{ inputs.task }}\` |"
+            echo "| Model | \`${{ inputs.model }}\` |"
+            echo "| Agent | \`${{ inputs.agent }}\` |"
+            echo "| Attempts | ${{ inputs.n_attempts }} |"
+            echo "| Skills loaded | $(ls -1 "$HOME/.agents/skills/" 2>/dev/null | wc -l) |"
+            echo ""
+            for result in /tmp/o11y-bench-jobs/**/result.json; do
+              echo "### \`${result#/tmp/o11y-bench-jobs/}\`"
+              echo ""
+              echo '```json'
+              jq '{score: .score, passed: .passed, attempt: .attempt, model: .model, error: .error_type}' "$result" 2>/dev/null || cat "$result"
+              echo '```'
+              echo ""
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload job artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: o11y-bench-${{ inputs.task }}-${{ github.run_id }}
+          path: /tmp/o11y-bench-jobs
+          retention-days: 30
