@@ -1,0 +1,46 @@
+name: Tessl Skill Review and Optimize
+
+on:
+  pull_request:
+    paths:
+      - "skills/**/SKILL.md"
+      - "template/SKILL.md"
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: tesslio/skill-review-and-optimize@fe59371464fcbcc3f4c87db41ea86c16ece4d655
+        with:
+          optimize: true
+          inline-suggestions: true
+          tessl-token: ${{ secrets.TESSL_API_TOKEN }}
+
+  apply:
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/apply-optimize') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: tesslio/skill-review-and-optimize@fe59371464fcbcc3f4c87db41ea86c16ece4d655
+        with:
+          mode: apply
