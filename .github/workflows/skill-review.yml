@@ -3,10 +3,12 @@ name: Skill Review
 on:
   pull_request:
     branches: [main]
-    # Intentionally NO paths: filter — required-check + path-gated trigger
+    # Intentionally NO paths: filter - required-check + path-gated trigger
     # would leave non-skill PRs BLOCKED forever (see agent-scan.yml for the
-    # full rationale). The tesslio/skill-review action auto-detects changed
-    # SKILL.md files internally and exits cleanly when none are present.
+    # full rationale). The action auto-detects changed SKILL.md files and
+    # exits cleanly when none are present.
+  issue_comment:
+    types: [created]
 
 # Workflow defaults to no permissions; each job grants only what it needs
 # (avoids zizmor/excessive-permissions on the workflow-wide block).
@@ -15,12 +17,14 @@ permissions: {}
 jobs:
   skill-review:
     runs-on: ubuntu-latest
-    # Fork PRs receive a read-only GITHUB_TOKEN, so the comment-posting step
-    # cannot succeed there. Skip the job rather than fail.
-    if: github.event.pull_request.head.repo.fork != true
+    # Fork PRs cannot obtain Vault secrets and receive a read-only GITHUB_TOKEN.
+    # Skip the job rather than fail.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork != true
     permissions:
       contents: read
       id-token: write   # Vault OIDC
+      issues: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -28,41 +32,51 @@ jobs:
       - name: Get Tessl token from Vault
         id: get-secrets
         # Tessl API token (from https://tessl.io workspace settings) maintained
-        # in Grafana's dev Vault. The action no longer exports secrets as env
-        # vars by default; we forward TESSL_TOKEN explicitly on the review step.
+        # in Grafana's dev Vault.
         uses: grafana/shared-workflows/actions/get-vault-secrets@952ec381447a2002ff76103395d37bf8b4c7c3f5 # main
         with:
           vault_instance: dev
           repo_secrets: |
             TESSL_TOKEN=tessl-token:token
 
-      # tesslio/skill-review has no tagged releases as of 2026-06-04, so we pin to
-      # the current HEAD commit on main per Grafana's GitHub Actions guidelines.
-      # Refresh this SHA on review by running:
-      #   gh api repos/tesslio/skill-review/commits/main --jq .sha
-      #
-      # PR comments are currently disabled (`comment: false`) because Grafana
-      # org-level workflow permissions are capped at 'read' and the default
-      # GITHUB_TOKEN can't post issue comments. The canonical fix is to mint
-      # an App token via grafana/shared-workflows/actions/create-github-app-token
-      # (e.g. grafana-ci-bot), but that requires per-repo Vault roles to be
-      # provisioned in deployment_tools — see follow-up. Until then, scores
-      # appear in the run log and the status check still gates merges.
-      - name: Run Tessl Skill Review
-        uses: tesslio/skill-review@22e928dd837202b2b1d1397e0114c92e0fae5ead # main @ 2026-03-27
-        env:
-          # TESSL_TOKEN forwarded so the action keeps working when setup-tessl@v1
-          # is phased out for @v2 (token-required).
-          TESSL_TOKEN: ${{ fromJSON(steps.get-secrets.outputs.secrets).TESSL_TOKEN }}
+      # tesslio/skill-review-and-optimize has no tagged releases as of
+      # 2026-06-10, so this workflow pins to the current HEAD commit on main per
+      # Grafana's GitHub Actions guidelines. Refresh this SHA on review by
+      # running:
+      #   gh api repos/tesslio/skill-review-and-optimize/commits/main --jq .sha
+      - name: Run Tessl Skill Review and Optimize
+        uses: tesslio/skill-review-and-optimize@fe59371464fcbcc3f4c87db41ea86c16ece4d655 # main @ 2026-06-10
         with:
-          comment: 'false'
-          # Block PR merge on scores below 75. Anthropic best-practice baseline
-          # is ~80; 75 leaves some room for rubric noise without being lax.
+          optimize: true
+          inline-suggestions: true
           fail-threshold: 75
+          tessl-token: ${{ fromJSON(steps.get-secrets.outputs.secrets).TESSL_TOKEN }}
+
+  apply-optimized-skill:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/apply-optimize') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Apply Tessl optimization
+        uses: tesslio/skill-review-and-optimize@fe59371464fcbcc3f4c87db41ea86c16ece4d655 # main @ 2026-06-10
+        with:
+          mode: apply
 
   fork-pr-notice:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.fork == true
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
     permissions: {}
     steps:
-      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (GITHUB_TOKEN is read-only and cannot post review comments). A maintainer can run the review on a same-repo branch if needed."
+      - run: echo "::notice::Skipping Tessl Skill Review on fork PR (no Vault secret access and read-only GITHUB_TOKEN). A maintainer can run the review on a same-repo branch if needed."
