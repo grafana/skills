@@ -23,6 +23,11 @@ on:
         description: 'Attempts per task (Pass^N is over 3; use 1 for a quick smoke)'
         required: true
         default: '1'
+  # TEMPORARY — remove before merging. Lets us validate the workflow on the
+  # PR branch before it lands on main (workflow_dispatch is only dispatchable
+  # once the file exists on the default branch).
+  push:
+    branches: [jarben/o11y-bench-ci]
 
 permissions: {}
 
@@ -32,7 +37,7 @@ concurrency:
 
 jobs:
   run:
-    name: 'Run: ${{ inputs.task }} on ${{ inputs.model }} (${{ inputs.agent }})'
+    name: "Run: ${{ inputs.task || 'query-cpu-metrics' }} on ${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }} (${{ inputs.agent || 'opencode' }})"
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -126,19 +131,19 @@ jobs:
           ANTHROPIC_API_KEY: ${{ fromJSON(steps.vault.outputs.secrets).ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
-          AGENT_INPUT='${{ inputs.agent }}'
+          AGENT_INPUT='${{ inputs.agent || 'opencode' }}'
           if [[ "$AGENT_INPUT" == *:* ]]; then
             AGENT_FLAG=(--agent-import-path "$AGENT_INPUT")
           else
             AGENT_FLAG=(--agent "$AGENT_INPUT")
           fi
           mise run bench:job -- \
-            --model "${{ inputs.model }}" \
-            --task-name "${{ inputs.task }}" \
+            --model "${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }}" \
+            --task-name "${{ inputs.task || 'query-cpu-metrics' }}" \
             "${AGENT_FLAG[@]}" \
-            --n-attempts "${{ inputs.n_attempts }}" \
+            --n-attempts "${{ inputs.n_attempts || '1' }}" \
             --n-concurrent 1 \
-            --job-name "manual-${GITHUB_RUN_ID}-${{ inputs.task }}" \
+            --job-name "manual-${GITHUB_RUN_ID}-${{ inputs.task || 'query-cpu-metrics' }}" \
             --jobs-dir /tmp/o11y-bench-jobs
 
       - name: Summarize result to job summary
@@ -151,10 +156,10 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Task | \`${{ inputs.task }}\` |"
-            echo "| Model | \`${{ inputs.model }}\` |"
-            echo "| Agent | \`${{ inputs.agent }}\` |"
-            echo "| Attempts | ${{ inputs.n_attempts }} |"
+            echo "| Task | \`${{ inputs.task || 'query-cpu-metrics' }}\` |"
+            echo "| Model | \`${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }}\` |"
+            echo "| Agent | \`${{ inputs.agent || 'opencode' }}\` |"
+            echo "| Attempts | ${{ inputs.n_attempts || '1' }} |"
             echo "| Skills loaded | $(ls -1 "$HOME/.agents/skills/" 2>/dev/null | wc -l) |"
             echo ""
             for result in /tmp/o11y-bench-jobs/**/result.json; do
@@ -171,6 +176,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: o11y-bench-${{ inputs.task }}-${{ github.run_id }}
+          name: o11y-bench-${{ inputs.task || 'query-cpu-metrics' }}-${{ github.run_id }}
           path: /tmp/o11y-bench-jobs
           retention-days: 30
