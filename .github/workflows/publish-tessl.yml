@@ -1,0 +1,25 @@
+name: Publish to Tessl
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".tessl-plugin/plugin.json"
+      - "skills/**/SKILL.md"
+      - "skills/**/references/**"
+      - ".github/workflows/publish-tessl.yml"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: tesslio/patch-version-publish@d1363877846ebf6bc09e032e2dc8612f1d7e38dd
+        with:
+          token: ${{ secrets.TESSL_API_TOKEN }}
