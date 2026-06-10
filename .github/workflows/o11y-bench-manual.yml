@@ -23,9 +23,11 @@ on:
         description: 'Attempts per task (Pass^N is over 3; use 1 for a quick smoke)'
         required: true
         default: '1'
-  # No PR / push trigger by design. `workflow_dispatch` is only dispatchable
-  # once the file lives on the default branch — to validate this PR before
-  # merging, temporarily re-add a `push:` trigger gated to the PR branch.
+  # TEMPORARY — remove before marking ready for review. Lets us validate
+  # the workflow on the PR branch before it lands on main (workflow_dispatch
+  # is only dispatchable once the file exists on the default branch).
+  push:
+    branches: [jarben/o11y-bench-ci]
 
 permissions: {}
 
