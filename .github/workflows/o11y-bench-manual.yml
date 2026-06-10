@@ -23,11 +23,9 @@ on:
         description: 'Attempts per task (Pass^N is over 3; use 1 for a quick smoke)'
         required: true
         default: '1'
-  # TEMPORARY — remove before marking ready for review. Lets us validate
-  # the workflow on the PR branch before it lands on main (workflow_dispatch
-  # is only dispatchable once the file exists on the default branch).
-  push:
-    branches: [jarben/o11y-bench-ci]
+  # No PR / push trigger by design. `workflow_dispatch` is only dispatchable
+  # once the file lives on the default branch — to validate a future change
+  # before merging, temporarily add a `push:` trigger gated to your branch.
 
 permissions: {}
 
@@ -162,12 +160,38 @@ jobs:
             echo "| Attempts | ${{ inputs.n_attempts || '1' }} |"
             echo "| Skills loaded | $(ls -1 "$HOME/.agents/skills/" 2>/dev/null | wc -l) |"
             echo ""
-            for result in /tmp/o11y-bench-jobs/**/result.json; do
-              echo "### \`${result#/tmp/o11y-bench-jobs/}\`"
+            # Top-level job result — Harbor writes one result.json per
+            # `manual-<runid>-<task>/` dir with aggregate stats. Pull the
+            # headline pass rate (mean reward) + trial counts.
+            for top_result in /tmp/o11y-bench-jobs/manual-*/result.json; do
+              echo "### Aggregate"
               echo ""
               echo '```json'
-              jq '{score: .score, passed: .passed, attempt: .attempt, model: .model, error: .error_type}' "$result" 2>/dev/null || cat "$result"
+              jq '{
+                n_completed: .stats.n_completed_trials,
+                n_errored:   .stats.n_errored_trials,
+                evals: (.stats.evals | to_entries | map({key, mean: .value.metrics[0].mean, n_trials: .value.n_trials, n_errors: .value.n_errors}))
+              }' "$top_result"
               echo '```'
+              echo ""
+            done
+            # Per-trial grading details — score + which rubric checks
+            # passed/failed. One file per trial under <task>__<hash>/verifier/.
+            for grading in /tmp/o11y-bench-jobs/**/verifier/grading_details.json; do
+              trial_id=$(basename "$(dirname "$(dirname "$grading")")")
+              echo "### Trial \`$trial_id\`"
+              echo ""
+              echo '```json'
+              jq 'with_entries(select(.key | startswith("explanation:") | not))' "$grading"
+              echo '```'
+              echo ""
+              echo "<details><summary>Verifier explanations</summary>"
+              echo ""
+              echo '```json'
+              jq 'with_entries(select(.key | startswith("explanation:")))' "$grading"
+              echo '```'
+              echo ""
+              echo "</details>"
               echo ""
             done
           } >> "$GITHUB_STEP_SUMMARY"
