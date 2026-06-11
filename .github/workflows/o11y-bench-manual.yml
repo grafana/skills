@@ -29,9 +29,11 @@ on:
 
 permissions: {}
 
+# Per-run concurrency group so independent manual dispatches genuinely run
+# in parallel (each run_id is unique) rather than queuing behind one another.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false   # let parallel manual runs co-exist
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   run:
@@ -52,9 +54,9 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: grafana/o11y-bench
-          # Pin to main HEAD as of 2026-06-09. Bump via:
+          # Pinned to a specific commit for reproducible runs. Bump intentionally via:
           #   gh api repos/grafana/o11y-bench/commits/main --jq .sha
-          ref: main
+          ref: cc8e69bb86cd7cb49321fd6d9bb525fbda58d672 # main as of 2026-05-12
           persist-credentials: false
           path: o11y-bench
 
@@ -125,27 +127,39 @@ jobs:
       # branch on `:`.
       - name: Run benchmark task
         working-directory: o11y-bench
+        # Dispatch inputs are passed via env (never interpolated into the
+        # script body) so a malicious/malformed input can't break shell
+        # parsing or inject commands. zizmor: template-injection.
         env:
           ANTHROPIC_API_KEY: ${{ fromJSON(steps.vault.outputs.secrets).ANTHROPIC_API_KEY }}
+          AGENT_INPUT: ${{ inputs.agent || 'opencode' }}
+          MODEL_INPUT: ${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }}
+          TASK_INPUT: ${{ inputs.task || 'query-cpu-metrics' }}
+          N_ATTEMPTS_INPUT: ${{ inputs.n_attempts || '1' }}
         run: |
           set -euo pipefail
-          AGENT_INPUT='${{ inputs.agent || 'opencode' }}'
           if [[ "$AGENT_INPUT" == *:* ]]; then
             AGENT_FLAG=(--agent-import-path "$AGENT_INPUT")
           else
             AGENT_FLAG=(--agent "$AGENT_INPUT")
           fi
           mise run bench:job -- \
-            --model "${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }}" \
-            --task-name "${{ inputs.task || 'query-cpu-metrics' }}" \
+            --model "$MODEL_INPUT" \
+            --task-name "$TASK_INPUT" \
             "${AGENT_FLAG[@]}" \
-            --n-attempts "${{ inputs.n_attempts || '1' }}" \
+            --n-attempts "$N_ATTEMPTS_INPUT" \
             --n-concurrent 1 \
-            --job-name "manual-${GITHUB_RUN_ID}-${{ inputs.task || 'query-cpu-metrics' }}" \
+            --job-name "manual-${GITHUB_RUN_ID}-${TASK_INPUT}" \
             --jobs-dir /tmp/o11y-bench-jobs
 
       - name: Summarize result to job summary
         if: always()
+        # Inputs via env (not interpolated into the script) — zizmor: template-injection.
+        env:
+          AGENT_INPUT: ${{ inputs.agent || 'opencode' }}
+          MODEL_INPUT: ${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }}
+          TASK_INPUT: ${{ inputs.task || 'query-cpu-metrics' }}
+          N_ATTEMPTS_INPUT: ${{ inputs.n_attempts || '1' }}
         run: |
           set +e
           shopt -s nullglob globstar
@@ -154,10 +168,10 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Task | \`${{ inputs.task || 'query-cpu-metrics' }}\` |"
-            echo "| Model | \`${{ inputs.model || 'anthropic/claude-haiku-4-5-20251001' }}\` |"
-            echo "| Agent | \`${{ inputs.agent || 'opencode' }}\` |"
-            echo "| Attempts | ${{ inputs.n_attempts || '1' }} |"
+            echo "| Task | \`${TASK_INPUT}\` |"
+            echo "| Model | \`${MODEL_INPUT}\` |"
+            echo "| Agent | \`${AGENT_INPUT}\` |"
+            echo "| Attempts | ${N_ATTEMPTS_INPUT} |"
             echo "| Skills loaded | $(ls -1 "$HOME/.agents/skills/" 2>/dev/null | wc -l) |"
             echo ""
             # Top-level job result — Harbor writes one result.json per
