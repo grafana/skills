@@ -6,7 +6,7 @@ description: Cut Grafana Cloud Metrics cost by shrinking active-series count wit
 
 # Grafana Cloud Adaptive Metrics
 
-> **Docs**: https://grafana.com/docs/grafana-cloud/cost-management-and-billing/reduce-costs/metrics-costs/adaptive-metrics/
+> **Docs**: https://grafana.com/docs/grafana-cloud/cost-management-and-billing/reduce-costs/metrics-costs/adaptive-metrics.md
 
 Aggregation rules that pre-shrink high-cardinality metrics before storage — directly reduces active-series billing.
 
