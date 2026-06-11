@@ -41,7 +41,7 @@ jobs:
         # uses a per-repo Snyk API token maintained in Grafana's dev Vault.
         # The action no longer exports secrets as env vars by default; we
         # forward SNYK_TOKEN explicitly on the scan step that needs it.
-        uses: grafana/shared-workflows/actions/get-vault-secrets@952ec381447a2002ff76103395d37bf8b4c7c3f5 # main
+        uses: grafana/shared-workflows/actions/get-vault-secrets@0a324424913040e0c11ee3d2dd7c969ed6dc1562 # main
         with:
           vault_instance: dev
           repo_secrets: |
