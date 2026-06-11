@@ -1,18 +1,52 @@
 ---
 name: grafana-oss
 license: Apache-2.0
-description: >
-  Grafana OSS core features — dashboards, panels, visualization types, data sources, template variables,
-  alerting, annotations, provisioning, RBAC, service accounts, and configuration. Use when building
-  dashboards, configuring data sources, setting up provisioning YAML, managing users and permissions,
-  writing PromQL/LogQL/TraceQL in panels, or configuring Grafana server settings.
+description: Configure Grafana OSS — provisions dashboards from YAML, sets up data sources (Prometheus / Loki / Tempo / Pyroscope), writes dashboard JSON with template variables, builds panel queries, assigns built-in roles (Viewer / Editor / Admin / GrafanaAdmin), mints service-account tokens, edits grafana.ini server config, creates annotations, installs plugins via provisioning, and validates each step with a health-check curl. Use when building dashboards, configuring data sources, setting up provisioning YAML, picking a panel type, writing template variables, managing users and roles, configuring SMTP/OAuth in grafana.ini, creating annotations via API, troubleshooting why a provisioned dashboard isn't showing up, or running Grafana OSS locally — even when the user says "set up a Prometheus data source", "provision dashboards from git", "make a service account", or "configure SSO in OSS" without saying "Grafana OSS".
 ---
 
 # Grafana OSS
 
-> **Docs**: https://grafana.com/docs/grafana/latest/
+> **Docs**: https://grafana.com/docs/grafana/latest.md
 
-## Dashboard Provisioning
+## Common Workflows
+
+### Provisioning dashboards from disk
+
+1. Drop dashboard JSON file(s) under `/var/lib/grafana/dashboards/`
+2. Add a provider in `provisioning/dashboards/default.yaml` (see [§ Dashboard provisioning](#dashboard-provisioning) below)
+3. Restart Grafana so the provider config is loaded
+4. **Verify the dashboard landed**:
+   ```bash
+   curl https://grafana.example.com/api/dashboards/uid/<uid> \
+     -H "Authorization: Bearer <token>" | jq '.dashboard.title'
+   ```
+   Returns the title → success. 404 → provisioning didn't pick it up; check Grafana server logs (`journalctl -u grafana-server | grep -i provisioning`) for parse errors.
+
+### Provisioning data sources
+
+1. Write `provisioning/datasources/datasources.yaml` (see [§ Data source provisioning](#data-source-provisioning) below)
+2. Restart Grafana
+3. **Health-check the data source via API**:
+   ```bash
+   curl https://grafana.example.com/api/datasources/uid/<uid>/health \
+     -H "Authorization: Bearer <token>"
+   # { "status": "OK", "message": "..." } → working
+   # { "status": "ERROR", ... } → URL unreachable or auth misconfigured
+   ```
+
+### Creating a service account + token
+
+1. Provision via YAML or `POST /api/serviceaccounts` (full API in [references/api.md § Users + service accounts](references/api.md#users--service-accounts))
+2. Mint a token via `POST /api/serviceaccounts/{id}/tokens`
+3. **Verify the token works**:
+   ```bash
+   curl https://grafana.example.com/api/org \
+     -H "Authorization: Bearer <new-token>"
+   # 200 + org JSON → token + role assignment work
+   # 401 → token wrong; 403 → role wrong
+   ```
+
+## Dashboard provisioning
 
 ```yaml
 # provisioning/dashboards/default.yaml
@@ -28,7 +62,9 @@ providers:
       foldersFromFilesStructure: true
 ```
 
-## Data Source Provisioning
+For the dashboard JSON shape itself (panels, queries, template variables), see [references/dashboard-json.md](references/dashboard-json.md).
+
+## Data source provisioning
 
 ```yaml
 # provisioning/datasources/datasources.yaml
@@ -66,114 +102,7 @@ datasources:
     url: http://pyroscope:4040
 ```
 
-## Panel Types
-
-| Panel | Use Case |
-|-------|----------|
-| **Time series** | Line/bar charts over time (default for metrics) |
-| **Stat** | Single value with color thresholds |
-| **Gauge** | Radial gauge for current value |
-| **Bar gauge** | Horizontal bars for comparisons |
-| **Table** | Tabular data, sortable columns |
-| **Logs** | Log stream viewer (Loki) |
-| **Traces** | Trace visualization (Tempo) |
-| **Heatmap** | Distribution over time |
-| **Histogram** | Value distribution |
-| **Pie chart** | Part-to-whole ratios |
-| **Geomap** | Geographic data |
-| **Canvas** | Custom SVG-based layouts |
-| **Node graph** | Service/topology graphs |
-| **Flame graph** | CPU/memory profiling |
-| **Text** | Markdown/HTML content |
-| **Alert list** | Show firing alerts |
-
-## Template Variables
-
-```json
-{
-  "templating": {
-    "list": [
-      {
-        "name": "namespace",
-        "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prom" },
-        "definition": "label_values(kube_pod_info, namespace)",
-        "includeAll": true,
-        "multi": true
-      },
-      {
-        "name": "env",
-        "type": "custom",
-        "query": "production,staging,dev",
-        "current": { "value": "production" }
-      },
-      {
-        "name": "interval",
-        "type": "interval",
-        "query": "1m,5m,15m,1h",
-        "auto": true
-      }
-    ]
-  }
-}
-```
-
-Use variables in queries: `rate(http_requests_total{namespace="$namespace"}[$interval])`
-
-## Alerting Configuration (grafana.ini)
-
-```ini
-[alerting]
-enabled = true
-
-[unified_alerting]
-enabled = true
-
-[smtp]
-enabled = true
-host = smtp.gmail.com:587
-user = alerts@example.com
-password = yourpassword
-from_address = alerts@example.com
-```
-
-## Server Configuration (grafana.ini)
-
-```ini
-[server]
-http_port = 3000
-domain = grafana.example.com
-root_url = https://grafana.example.com/
-
-[database]
-type = postgres
-host = postgres:5432
-name = grafana
-user = grafana
-password = secret
-
-[auth.generic_oauth]
-enabled = true
-name = Okta
-client_id = your_client_id
-client_secret = your_secret
-auth_url = https://your-org.okta.com/oauth2/v1/authorize
-token_url = https://your-org.okta.com/oauth2/v1/token
-api_url = https://your-org.okta.com/oauth2/v1/userinfo
-scopes = openid profile email groups
-
-[security]
-admin_user = admin
-admin_password = secret
-allow_embedding = true       # for embedding dashboards
-
-[feature_toggles]
-enable = publicDashboards
-```
-
-## RBAC
-
-### Built-in Roles
+## RBAC (built-in roles)
 
 | Role | Permissions |
 |------|-------------|
@@ -182,7 +111,7 @@ enable = publicDashboards
 | **Admin** | Manage data sources, users, plugins |
 | **GrafanaAdmin** | Server-wide admin (superuser) |
 
-### Service Account Provisioning
+Service-account provisioning:
 
 ```yaml
 # provisioning/access-control/service_accounts.yaml
@@ -193,80 +122,12 @@ serviceAccounts:
     role: Viewer
     tokens:
       - name: ci-token
-        expires: 2025-01-01T00:00:00Z
+        # expires: optional ISO 8601 timestamp; omit for no-expiry tokens
 ```
 
-### Custom RBAC Roles (Enterprise / Cloud)
+(Custom RBAC roles with fine-grained permissions are Enterprise / Cloud only — see the `grafana-cloud/admin` skill if you need those.)
 
-```yaml
-# provisioning/access-control/roles.yaml
-apiVersion: 1
-roles:
-  - name: DashboardEditor
-    description: Can create and edit dashboards
-    permissions:
-      - action: dashboards:create
-      - action: dashboards:write
-        scope: dashboards:*
-      - action: folders:read
-        scope: folders:*
-```
-
-## Dashboard JSON Model
-
-```json
-{
-  "title": "Service Overview",
-  "uid": "service-overview",
-  "time": { "from": "now-1h", "to": "now" },
-  "refresh": "30s",
-  "panels": [
-    {
-      "type": "timeseries",
-      "title": "Request Rate",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus" },
-          "expr": "rate(http_requests_total{job=\"$job\"}[5m])",
-          "legendFormat": "{{method}} {{status}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1000 }
-            ]
-          }
-        }
-      }
-    }
-  ]
-}
-```
-
-## Annotations
-
-```bash
-# Create annotation via API
-curl -X POST https://grafana.example.com/api/annotations \
-  -H 'Authorization: Bearer <token>' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "dashboardUID": "service-overview",
-    "panelId": 1,
-    "time": 1706745600000,
-    "timeEnd": 1706749200000,
-    "tags": ["deploy", "v2.0"],
-    "text": "Deployed v2.0"
-  }'
-```
-
-## Plugin Provisioning
+## Plugin provisioning
 
 ```yaml
 # provisioning/plugins/plugins.yaml
@@ -278,28 +139,11 @@ apps:
       backendUrl: http://pyroscope:4040
 ```
 
-## Key API Endpoints
+After restart, verify via `GET /api/plugins/<plugin-id>/health`.
 
-```bash
-# Search dashboards
-GET /api/search?query=service&type=dash-db&folderIds=1
+## References
 
-# Get dashboard
-GET /api/dashboards/uid/{uid}
-
-# Create/update dashboard
-POST /api/dashboards/db
-{ "dashboard": {...}, "folderUID": "...", "overwrite": true }
-
-# List data sources
-GET /api/datasources
-
-# Create data source
-POST /api/datasources
-
-# List users
-GET /api/org/users
-
-# Create service account token
-POST /api/serviceaccounts/{id}/tokens
-```
+- [`references/dashboard-json.md`](references/dashboard-json.md) — full dashboard JSON model + template variables + common problems (uid uniqueness, gridPos arithmetic, datasource uid matching)
+- [`references/panel-types.md`](references/panel-types.md) — panel-type table + decision guide for picking the right one
+- [`references/api.md`](references/api.md) — full Grafana OSS API reference (dashboards, data sources, users, service accounts, annotations) with verification curls and common failure modes
+- [`references/config.md`](references/config.md) — `grafana.ini` server / database / SMTP / auth / security / feature-toggle config + restart-required issues

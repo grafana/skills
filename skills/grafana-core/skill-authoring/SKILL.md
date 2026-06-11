@@ -8,15 +8,6 @@ description: Author, audit, and improve Grafana SKILL.md files against Anthropic
 
 How to write, review, and improve SKILL.md files so they pass the repo's CI gate and score well against the Anthropic-aligned rubric Tessl uses.
 
-## When to use this skill
-
-- Creating a new skill (use the [decision tree](#decision-tree-for-a-new-skill) below)
-- A PR fails the `skill-review` workflow with a score below 75
-- An existing skill is technically passing but you want it ≥85 (the recommended baseline)
-- The description "isn't triggering" — agents skip past it when they should pick it up
-- SKILL.md is over 500 lines and starting to feel monolithic
-- Reviewing a teammate's skill PR
-
 ## Critical rules (always)
 
 1. **Description is the primary trigger** — third-person, ≤1024 chars, must include explicit "Use when..." phrasing AND list concrete trigger terms users naturally say. See [references/descriptions.md](references/descriptions.md) for the pushy-description pattern that combats undertriggering.
@@ -28,18 +19,13 @@ How to write, review, and improve SKILL.md files so they pass the repo's CI gate
 7. **No time-sensitive language in the body** — "after August 2025…" rots. Use an `<details>` "Old patterns" section for legacy info instead.
 8. **Validate before committing** — `./scripts/lint-skills.sh skills/<plugin>/<your-skill>` clean + Tessl score ≥75 (run `tessl skill review --json <dir>`).
 
-## The rubric this repo is graded against
+## The rubric
 
-The `skill-review` CI workflow fails any PR where a touched SKILL.md scores below **75**. Four dimensions, each 0-3:
+CI fails any PR where a touched SKILL.md scores below **75** on four 0-3 dimensions: **conciseness**, **actionability**, **workflow clarity**, **progressive disclosure**. Full per-dimension scoring + Anthropic-doc mapping in [references/rubric.md](references/rubric.md).
 
-| Dimension | What it measures | Where to look in this skill |
-|---|---|---|
-| **Conciseness** | No content Claude already knows | [references/rubric.md § Conciseness](references/rubric.md#conciseness) |
-| **Actionability** | Concrete examples, imperative commands, copy-paste-ready | [references/rubric.md § Actionability](references/rubric.md#actionability) |
-| **Workflow clarity** | Numbered steps, validation checkpoints, feedback loops | [references/rubric.md § Workflow clarity](references/rubric.md#workflow-clarity) |
-| **Progressive disclosure** | Three-level loading (metadata / SKILL.md / bundle) | [references/rubric.md § Progressive disclosure](references/rubric.md#progressive-disclosure) |
+## Score variance
 
-For full per-dimension scoring and Anthropic-doc mapping, see [references/rubric.md](references/rubric.md).
+The judge is an LLM and swings 7-10 points run-to-run. Local 94 commonly lands at CI 85. **Ship only on three consecutive local 100s.**
 
 ## Decision tree for a new skill
 
@@ -82,34 +68,25 @@ For full per-dimension scoring and Anthropic-doc mapping, see [references/rubric
 
 ## Fixing a low-scoring existing skill
 
-1. Get the per-dimension scores + suggestions:
+1. Read the judge's verbatim Suggestions text (non-JSON output):
    ```bash
-   tessl skill review --json skills/<plugin>/<name> \
-     | jq '{score: .review.reviewScore, scores: .contentJudge.evaluation.scores, suggestions: .contentJudge.evaluation.suggestions}'
+   tessl skill review skills/<plugin>/<name>
    ```
+   The `Suggestions:` block under each dimension names the exact sentences/sections to cut. **Copy the suggestion** — don't guess. Then verify the lowest dimension matches your read.
 
-2. Pick the lowest-scoring dimension and apply the fix pattern from [references/rubric.md](references/rubric.md):
-   - **Conciseness 1-2** → cut intros, definitions, "what X is" paragraphs
+2. Apply the fix pattern from [references/rubric.md](references/rubric.md):
+   - **Conciseness 1-2** → cut intros, definitions, multi-line tables that mostly point to refs
    - **Actionability 1-2** → replace prose with code blocks and CLI commands
    - **Workflow clarity 1-2** → add numbered steps + validation checkpoints
    - **Progressive disclosure 1-2** → split into `references/*.md`
 
-3. If the skill is **intentionally a routing document** (like `grafana-k6/k6-docs`), don't let `--optimize` inline the bundle back into SKILL.md. Hand-craft: add a minimal copy-paste-ready "validation loop" inline so SKILL.md is independently actionable, but keep the references for the full procedural detail.
+3. If the skill is **intentionally a routing document** (like `grafana-k6/k6-docs`), don't let `--optimize` inline the bundle back into SKILL.md. Hand-craft a minimal copy-paste "validation loop" inline so SKILL.md is independently actionable, while preserving the bundle.
 
-4. Re-score and iterate. The `--max-iterations 3` flag on `--optimize` is the default budget; raise to 5-10 for stubborn cases.
+4. Re-score five times locally. **Don't stop until all five runs hit 100** — see "Score variance" above for why.
 
-## Anti-patterns to avoid
+## Anti-patterns
 
-- **Vague descriptions** ("Helps with metrics", "Does stuff with files") — agents won't trigger.
-- **First-person voice** ("I can help you process Excel") — Anthropic explicitly calls this out; use third-person.
-- **`MUST` / `ALWAYS` / `NEVER` everywhere** — reserve for genuine hard constraints. Otherwise explain *why*.
-- **Time-sensitive phrasing** in the body — "Before August 2025…" rots.
-- **Windows-style paths** (`scripts\helper.py`) — always use forward slashes.
-- **Dangling references** — `[see references/x.md](references/x.md)` where the file doesn't exist. The linter doesn't catch this; reviewers should.
-- **Inlining content during `--optimize`** when the skill was deliberately a routing layer (see [references/anatomy.md § When NOT to inline](references/anatomy.md#when-not-to-inline)).
-- **Skipping the marketplace registration** — the skill exists on disk but isn't installable via any plugin marketplace.
-
-For a longer list with examples, see [references/anti-patterns.md](references/anti-patterns.md).
+See [references/anti-patterns.md](references/anti-patterns.md).
 
 ## References
 

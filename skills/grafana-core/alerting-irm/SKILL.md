@@ -1,126 +1,56 @@
 ---
 name: alerting-irm
 license: Apache-2.0
-description: >
-  Grafana Alerting, Incident Response Management (IRM), and SLOs. Covers Grafana-managed and data source-managed
-  alert rules, notification policies, contact points (Slack/PagerDuty/email/webhook), silences, muting,
-  on-call scheduling, incident management workflows, and SLO configuration with burn-rate alerts.
-  Use when configuring alerts, debugging notification routing, setting up on-call rotations,
-  managing incidents, defining SLOs, or provisioning alerting via YAML/API.
+description: Configure Grafana Alerting, Incident Response Management (IRM), and SLOs end-to-end — provisions Grafana-managed and data-source-managed alert rules, contact points (Slack/PagerDuty/email/webhook), notification policies with hierarchical matchers, silences, mute timings, on-call schedules and escalation chains, incident-management integrations, and SLOs with multi-window burn-rate alerts. Use when configuring alerts, debugging notification routing, setting up on-call rotations, declaring or managing incidents, defining SLOs, provisioning alerting via YAML or API, picking matchers for a notification policy, building a PagerDuty/Slack webhook receiver, or troubleshooting why an alert isn't firing — even when the user says "page me on errors", "alert me when X happens", "route this to the platform team", or "set up an SLO" without naming Alerting or IRM.
 ---
 
 # Grafana Alerting & IRM
 
-> **Docs**: https://grafana.com/docs/grafana/latest/alerting/
+> **Docs**: https://grafana.com/docs/grafana/latest/alerting.md
 
-## Alert Rules
+## Common Workflows
 
-### Grafana-Managed Alert Rule (YAML provisioning)
+### Provisioning a new alert end-to-end
 
-```yaml
-# provisioning/alerting/rules.yaml
-apiVersion: 1
-groups:
-  - orgId: 1
-    name: MyAlertGroup
-    folder: MyFolder
-    interval: 1m
-    rules:
-      - uid: high-error-rate
-        title: High Error Rate
-        condition: C
-        data:
-          - refId: A
-            datasourceUid: prometheus
-            relativeTimeRange:
-              from: 300   # 5 minutes
-              to: 0
-            model:
-              expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
-          - refId: B
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              refId: B
-              expression: A
-              reducer: last
-          - refId: C
-            datasourceUid: __expr__
-            model:
-              type: math
-              refId: C
-              expression: $B > 0.05
-        noDataState: NoData
-        execErrState: Alerting
-        for: 5m
-        labels:
-          severity: critical
-          team: platform
-        annotations:
-          summary: "High error rate on {{ $labels.service }}"
-          description: "Error rate is {{ $values.B }}%"
-          runbook_url: "https://runbooks.example.com/high-error-rate"
-```
+1. **Create contact points** (where notifications go):
+   ```bash
+   curl -X POST https://grafana.example.com/api/v1/provisioning/contact-points \
+     -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
+     -d @contact-points.json
+   ```
+   Verify:
+   ```bash
+   curl https://grafana.example.com/api/v1/provisioning/contact-points \
+     -H 'Authorization: Bearer <token>' | jq '.[].name'
+   ```
 
-### Prometheus/Mimir Alert Rule (ruler)
+2. **Add notification policies** (which alerts go where) — see [§ Notification policies](#notification-policies) below for the matchers pattern.
 
-```yaml
-groups:
-  - name: service-alerts
-    interval: 1m
-    rules:
-      - alert: HighErrorRate
-        expr: |
-          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
-          /
-          sum(rate(http_requests_total[5m])) by (service)
-          > 0.05
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "High error rate: {{ $labels.service }}"
+3. **Write the alert rule** — pick the type:
+   - Grafana-managed → see [references/alerting.md § Grafana-managed alert rule](references/alerting.md#grafana-managed-alert-rule-yaml-provisioning)
+   - Prometheus/Mimir ruler → see [references/alerting.md § Prometheus / Mimir alert rule](references/alerting.md#prometheus--mimir-alert-rule-ruler)
+   - Loki LogQL → see [references/alerting.md § Loki alert rule](references/alerting.md#loki-alert-rule-logql)
 
-      - alert: HighLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: "P95 latency > 1s on {{ $labels.service }}"
+4. **Verify routing** before going live:
+   ```bash
+   # Force-fire a test alert from the rule's UI, then check Alertmanager's view
+   curl https://grafana.example.com/api/alertmanager/grafana/api/v2/alerts \
+     -H 'Authorization: Bearer <token>' | jq '.[] | {alertname: .labels.alertname, receiver: .receivers}'
+   ```
+   The expected receiver should appear. If the wrong receiver appears, re-check the policy's matchers.
 
-      # Recording rule
-      - record: job:http_requests:rate5m
-        expr: sum(rate(http_requests_total[5m])) by (job)
-```
+### Routing alerts to IRM / on-call
 
-### Loki Alert Rule (LogQL)
+1. In IRM, create an Integration of type "Grafana Alerting webhook" → copy the integration URL
+2. Add a webhook contact point in Grafana Alerting pointing at that URL (full YAML in [references/irm.md § Routing](references/irm.md#routing-from-grafana-alerting-to-irm))
+3. Add a notification policy matcher routing the right severity to the new contact point
+4. Verify: trigger a test alert; it should appear in IRM within ~30s. Full debug procedure in [references/irm.md § Verifying the IRM integration](references/irm.md#verifying-the-irm-integration).
 
-```yaml
-groups:
-  - name: log-alerts
-    rules:
-      - alert: HighErrorLogs
-        expr: |
-          sum(rate({app="myapp"} |= "error" [5m])) by (app)
-          /
-          sum(rate({app="myapp"}[5m])) by (app)
-          > 0.05
-        for: 10m
-        labels:
-          severity: page
-        annotations:
-          summary: "High error log rate for {{ $labels.app }}"
+### Defining an SLO
 
-      - alert: CredentialsLeak
-        expr: |
-          sum by (cluster, job, pod) (
-            count_over_time({namespace="prod"} |~ "https?://(\\w+):(\\w+)@" [5m]) > 0
-          )
-        for: 5m
-        labels:
-          severity: critical
-```
+1. Create the SLO via UI or API → Grafana auto-generates recording rules, dashboards, and burn-rate alerts (the generated YAML is in [references/slo.md](references/slo.md))
+2. **Use multi-window burn-rate alerts**, not single-window — see [references/slo.md § Multi-window burn-rate alerts](references/slo.md#multi-window-burn-rate-alerts-recommended) for why single-window fires on noise
+3. Verify with the 4-step pattern in [references/slo.md § Validating SLO config](references/slo.md#validating-slo-config)
 
 ## Contact Points (YAML provisioning)
 
@@ -145,33 +75,16 @@ contactPoints:
         settings:
           url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
           channel: '#alerts'
-          username: Grafana
-          icon_emoji: ':grafana:'
-          title: '{{ template "slack.default.title" . }}'
-          text: '{{ template "slack.default.text" . }}'
-
-  - orgId: 1
-    name: email-alerts
-    receivers:
-      - uid: email-receiver
-        type: email
-        settings:
-          addresses: 'oncall@example.com;alerts@example.com'
-
-  - orgId: 1
-    name: webhook-alerts
-    receivers:
-      - uid: webhook-receiver
-        type: webhook
-        settings:
-          url: https://your-endpoint.com/grafana-alerts
-          httpMethod: POST
 ```
 
-## Notification Policies (YAML provisioning)
+For email, webhook, Teams, Telegram, OnCall, and other receiver types, see [references/alerting.md § Contact point receiver types](references/alerting.md#contact-point-receiver-types).
+
+## Notification policies
+
+Hierarchical routing tree with label matchers:
 
 ```yaml
-# provisioning/alerting/policies.yaml
+# provisioning/alerting/notification_policies.yaml
 apiVersion: 1
 policies:
   - orgId: 1
@@ -186,15 +99,13 @@ policies:
         matchers:
           - severity = critical
         group_wait: 10s
-        group_interval: 1m
         repeat_interval: 4h
 
-      # Platform team alerts → Slack
+      # Platform team → Slack, but page on critical
       - receiver: slack-alerts
         matchers:
           - team = platform
         routes:
-          # Critical platform → page immediately
           - receiver: pagerduty-critical
             matchers:
               - severity = critical
@@ -207,11 +118,11 @@ policies:
 
 ## Silences
 
-Silences suppress notifications for matching alerts without stopping evaluation.
+Suppress notifications for matching alerts without stopping evaluation:
 
 ```bash
-# Via API - create a silence
 curl -X POST https://grafana.example.com/api/alertmanager/grafana/api/v2/silences \
+  -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
   -d '{
     "matchers": [
@@ -223,9 +134,13 @@ curl -X POST https://grafana.example.com/api/alertmanager/grafana/api/v2/silence
     "comment": "Maintenance window",
     "createdBy": "admin"
   }'
+
+# Verify it was created
+curl https://grafana.example.com/api/alertmanager/grafana/api/v2/silences \
+  -H 'Authorization: Bearer <token>' | jq '.[] | select(.status.state == "active")'
 ```
 
-## Alert Rule States
+## Alert rule states
 
 | State | Description |
 |-------|-------------|
@@ -236,112 +151,37 @@ curl -X POST https://grafana.example.com/api/alertmanager/grafana/api/v2/silence
 | **Error** | Query/evaluation error |
 | **Recovering** | Was firing, condition no longer met |
 
-## SLOs
-
-```yaml
-# SLO configuration (via Grafana UI or API)
-# Grafana auto-generates recording rules, dashboards, and burn-rate alerts
-
-# Generated recording rules example:
-groups:
-  - name: slo_availability
-    interval: 1m
-    rules:
-      - record: slo:availability:ratio_rate5m
-        expr: |
-          sum(rate(http_requests_total{status!~"5.."}[5m])) by (service)
-          / sum(rate(http_requests_total[5m])) by (service)
-
-      - record: slo:error_budget:remaining
-        expr: |
-          (slo:availability:ratio_rate30d - 0.999) / (1 - 0.999)
-
-# Burn rate alerts (auto-generated by Grafana SLO)
-- alert: SLOBurnRateHigh
-  expr: |
-    slo:burn_rate:ratio_rate1h > 14.4      # 1h window, 5% budget in 1h
-  for: 2m
-  labels:
-    severity: critical
-  annotations:
-    summary: "SLO burn rate critical for {{ $labels.service }}"
-```
-
-## IRM - On-Call and Incidents
-
-### Key IRM Capabilities
-
-- **On-Call Schedules**: Rotating shifts, overrides, escalation policies
-- **Alert Routing**: Route from Grafana Alerting, Prometheus, Datadog, PagerDuty, etc.
-- **Incident Management**: Declare incidents, add participants, track tasks/timeline
-- **Escalation Chains**: Auto-escalate if no response after N minutes
-- **Integrations**: Slack, Teams, Telegram, GitHub, Jira, StatusPage
-
-### IRM Integration Sources
-
-| Source | Setup |
-|--------|-------|
-| Grafana Alerting | Native - configure in contact points |
-| Prometheus Alertmanager | Webhook URL from IRM |
-| Datadog | Webhook integration |
-| PagerDuty | Event integration |
-| Jira | Issue alerts |
-| Custom | Generic webhook |
-
-## Provisioning Directory Structure
+## Provisioning directory layout
 
 ```
 provisioning/alerting/
-├── alert_rules.yaml        # Alert and recording rules
-├── contact_points.yaml     # Notification destinations
+├── alert_rules.yaml          # Alert and recording rules
+├── contact_points.yaml       # Notification destinations
 ├── notification_policies.yaml  # Routing tree
-├── templates.yaml          # Message templates
-└── mute_timings.yaml       # Recurring mute windows
+├── templates.yaml            # Message templates
+└── mute_timings.yaml         # Recurring mute windows
 ```
 
-## API Provisioning (Keeps UI Editable)
+## API provisioning (keeps UI editable)
+
+Add `X-Disable-Provenance: true` to keep resources editable in the UI after API provisioning:
 
 ```bash
-# Get current notification policy
-curl https://grafana.example.com/api/v1/provisioning/policies \
-  -H 'Authorization: Bearer <token>'
-
-# Update (add X-Disable-Provenance to keep editable in UI)
 curl -X PUT https://grafana.example.com/api/v1/provisioning/policies \
   -H 'Authorization: Bearer <token>' \
   -H 'X-Disable-Provenance: true' \
   -H 'Content-Type: application/json' \
   -d @policy.json
 
-# Create alert rule
 curl -X POST https://grafana.example.com/api/v1/provisioning/alert-rules \
   -H 'Authorization: Bearer <token>' \
+  -H 'X-Disable-Provenance: true' \
   -H 'Content-Type: application/json' \
   -d @rule.json
 ```
 
-## Notification Templates
-
-```
-# Custom Slack template
-{{ define "slack.custom.title" }}
-  [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
-  {{ .CommonLabels.alertname }}
-{{ end }}
-
-{{ define "slack.custom.text" }}
-{{ range .Alerts }}
-*Alert:* {{ .Annotations.summary }}
-*Severity:* {{ .Labels.severity }}
-*Service:* {{ .Labels.service }}
-*Details:* {{ .Annotations.description }}
-{{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
-{{ end }}
-{{ end }}
-```
-
 ## References
 
-- [Alerting Rules](references/alerting.md)
-- [IRM & On-Call](references/irm.md)
-- [SLOs](references/slo.md)
+- [`references/alerting.md`](references/alerting.md) — full alert rule YAML (Grafana-managed / Prometheus / Loki) + notification templates
+- [`references/slo.md`](references/slo.md) — generated SLO recording rules + multi-window burn-rate alert pattern + validation steps
+- [`references/irm.md`](references/irm.md) — IRM capabilities, integration sources, Alerting → IRM routing + verification + common failure modes

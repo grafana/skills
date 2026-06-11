@@ -49,6 +49,32 @@ Tessl's `contentJudge` (the body-scoring half of the review) uses these four dim
 
 The code is the explanation. The prose around it was tax.
 
+### Trim multi-example lists to 1-2 inline + defer the rest
+
+When a section enumerates N variants of the same shape (receiver types / cloud providers / language SDKs / panel types / etc.), the judge consistently scores conciseness 2/3 if all N are inline. Reliable lift to 3/3:
+
+- Keep the **1-2 most-common** examples inline, in full
+- Move the rest to `references/<topic>.md` under a "Other X types" section, often with brief stub code + a list of remaining types
+- Link from the inline section: *"For email, webhook, Teams, … see [references/X.md § Other types](references/x.md#other-x-types)"*
+
+Concrete: in this repo, `alerting-irm` inlined four contact-point receiver types (PagerDuty, Slack, email, webhook). Conciseness stuck at 2/3. Trimming to PagerDuty + Slack inline and moving email + webhook to `references/alerting.md § Contact point receiver types` (with a list of the other 10+ supported types) lifted the score from 94 → 100 across 3 consecutive local runs.
+
+### Other 2/3 traps observed across the catalog
+
+The 85→100 sweep on `cue-kind-definition`, `private-connectivity`, and `skill-authoring` surfaced these recurring conciseness traps. The judge's verbatim suggestion text is in italics — quoting it because the wording is consistent enough to grep for in future reviews.
+
+- **"When to use this skill" bulleted lists** — overlap with the description's "Use when…" clause. *"the 'when to use this skill' list overlaps heavily with what should be in the description"*. Fix: delete the section entirely; the description is the trigger.
+- **Multi-row tables that delegate to refs** — each cell is a one-line summary + ref link. *"the rubric table could be leaner since it mostly points to references"*. Fix: replace with a one-sentence summary + single ref link.
+- **Cost / savings / business-value tangents** — dollar amounts, ROI calculations, "this saves N% on…". *"includes some unnecessary content like the cost savings section with specific dollar calculations"*. Fix: move to `references/<topic>.md § Cost`.
+- **Bare decision-table rows** — single-line entries with no actionable content ("On-premises with no cloud provider — use Agent over internet"). *"the 'On-premises with no cloud provider' row"*. Fix: drop the row.
+- **Multi-paragraph "Why X" explanations** — explaining the rationale at length. *"the 'Score variance' section spends many lines explaining LLM judge variance which could be condensed to 2-3 lines"*. Fix: collapse to one sentence stating the rule + one stating the reason.
+- **Anti-patterns lists that duplicate critical rules** — *"the anti-patterns section partially duplicates the critical rules"*. Fix: either fold uniques into the rules, or replace the section with a one-line pointer to `references/anti-patterns.md`.
+- **Intro paragraphs of the form "X drives the entire Y pipeline; each X describes…"** — orientation prose Claude doesn't need. *"the opening paragraph explaining what kinds drive and what gets generated from them is context Claude can infer"*. Fix: delete and start with the first workflow.
+
+### Read the judge's suggestions, don't guess
+
+`tessl skill review` (without `--json`) prints an `Assessment:` paragraph and `Suggestions:` bullets per dimension. **The Suggestions block names the exact sentences/sections to cut.** Copy them directly. Across this repo's 85→100 fixes, *every* lift came from applying the verbatim suggestion — guessing what to trim consistently took longer and lifted less.
+
 ## Actionability
 
 **What it scores:** Could Claude, reading this once, do the task copy-paste? Or does Claude have to fill gaps from its own knowledge?
@@ -194,6 +220,13 @@ Then SKILL.md links to each `references/*.md` one level deep.
 Some skills are intentionally short routing documents (e.g. `grafana-k6/k6-docs` — 33 lines of overview pointing at a deep `references/workflows/*.md` bundle). The four-dimension rubric penalizes these for "not independently actionable", BUT the architecture is correct.
 
 For routing documents: add a minimal copy-paste-ready "validation loop" inline so SKILL.md is independently actionable for the most common task, while preserving the bundle for everything else. See `skills/grafana-k6/k6-docs/SKILL.md` for the pattern that lifted its score from 72 → 100 without losing the bundle.
+
+### The "bundle files weren't provided" 2/3 ceiling
+
+`tessl skill review` (and CI) only reads SKILL.md — not files under `references/`. The LLM judge sees the link in SKILL.md but cannot verify the target exists, so it caps progressive_disclosure at 2/3 with the line *"no bundle files were provided, so the references are dangling"*. Two responses:
+
+- **Login locally**: `tessl login`, then `tessl skill review` includes bundle files in the judgment (output note: *"Only SKILL.md was reviewed. Log in with tessl login to include all supporting files in the review."*). CI doesn't login, so this only helps local-only sanity checks.
+- **Don't write your way into the trap**: a skill that *itself* names "dangling references" as a danger triggers the judge's caution explicitly. If your SKILL.md uses references heavily, keep the dangling-references warning in `references/anti-patterns.md` rather than in the body.
 
 ## Combined heuristic
 

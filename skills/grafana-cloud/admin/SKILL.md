@@ -1,16 +1,61 @@
 ---
 name: admin
 license: Apache-2.0
-description: >
-  Grafana Cloud account management — organizations, stacks, RBAC, SSO/SAML/OAuth, service accounts,
-  API keys, team management, billing, and cloud-level provisioning. Use when managing Grafana Cloud
-  access, configuring SSO, setting up service accounts for CI/CD, assigning roles, managing multiple
-  stacks or organizations, or provisioning cloud resources via API.
+description: Manage Grafana Cloud accounts — organizations, stacks, RBAC roles and assignments, SSO/SAML/OAuth/GitHub auth, service accounts for CI/CD, user invites, team membership, and API-driven provisioning. Creates stacks via the Cloud API, mints service-account tokens, applies role assignments, configures SSO providers, and provisions teams/folders/dashboards via Terraform. Use when managing Grafana Cloud access, configuring SSO/SAML/OAuth, setting up service accounts for Terraform/CI/CD, assigning RBAC roles, inviting users, managing multiple stacks or organizations, provisioning cloud resources via API or Terraform, or auditing admin actions — even when the user says "set up SSO", "create a stack", "make a service account", or "onboard a team" without explicitly saying "admin".
 ---
 
 # Grafana Cloud Admin
 
-> **Docs**: https://grafana.com/docs/grafana-cloud/account-management/
+> **Docs**: https://grafana.com/docs/grafana-cloud/account-management.md
+
+## Common Workflows
+
+### Setting up a new stack
+
+```bash
+# 1. Create the stack via Cloud API
+curl -X POST https://grafana.com/api/instances \
+  -H "Authorization: Bearer <grafana-com-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-new-stack", "slug": "my-new-stack", "region": "us-east-0", "plan": "grafana-cloud-free"}'
+
+# 2. Verify the stack is reachable (poll until 200)
+until curl -fs https://my-new-stack.grafana.net/api/health > /dev/null; do sleep 2; done
+
+# 3. Mint an admin service-account token (see § Service Accounts below)
+
+# 4. Test the token
+curl https://my-new-stack.grafana.net/api/org -H "Authorization: Bearer <token>"
+# Returns 200 + org JSON → token works
+```
+
+### Onboarding a team
+
+1. Invite users via `POST /api/org/invites` (one curl per user — see [references/api-reference.md § Stack API](references/api-reference.md#stack-api--user--team--org-management))
+2. Create the team via `POST /api/teams`
+3. Add each user via `POST /api/teams/{teamId}/members`
+4. Assign an RBAC role to the team (see [§ RBAC](#rbac) below)
+5. Verify: `GET /api/teams/{teamId}/members` returns the expected user list
+
+### Configuring SSO (Okta / SAML / GitHub)
+
+1. Pick the provider config from [references/sso.md](references/sso.md) and drop into `grafana.ini`
+2. Restart Grafana
+3. **Always validate in an incognito window before announcing**: see [references/sso.md § Verifying SSO](references/sso.md#verifying-sso) for the 5-step verification + role-mapping debug pattern
+
+### Deleting a stack (destructive)
+
+```bash
+# 1. Delete via Cloud API
+curl -X DELETE https://grafana.com/api/instances/{id} \
+  -H "Authorization: Bearer <grafana-com-api-key>"
+
+# 2. Verify the stack is gone (must return 404)
+curl https://grafana.com/api/instances/{id} \
+  -H "Authorization: Bearer <grafana-com-api-key>"
+```
+
+If the GET still returns 200 after a few seconds, the delete didn't apply — re-check the stack ID and Cloud API key.
 
 ## Organization and Stack Structure
 
@@ -34,7 +79,9 @@ Grafana Cloud Account
 | **Editor** | Stack | Create/edit dashboards, alerts |
 | **Viewer** | Stack | Read-only dashboards |
 
-## RBAC (Cloud / Enterprise)
+## RBAC
+
+Define a custom role + assignment in provisioning YAML:
 
 ```yaml
 # provisioning/access-control/roles.yaml
@@ -63,25 +110,33 @@ roleAssignments:
       - platform-team
 ```
 
+After committing the YAML and restarting Grafana, verify the role applied: `GET /api/access-control/roles | jq '.[] | select(.name=="TeamDashboardEditor")'`.
+
 ## Service Accounts
 
-Service accounts are the recommended way for programmatic access (CI/CD, Terraform, agents):
+Service accounts are the recommended way for programmatic access (CI/CD, Terraform, agents).
 
 ```bash
-# Create service account via API
+# 1. Create the service account
 curl -X POST https://yourstack.grafana.net/api/serviceaccounts \
   -H "Authorization: Bearer <admin-token>" \
   -H "Content-Type: application/json" \
   -d '{"name": "terraform-provisioner", "role": "Admin", "isDisabled": false}'
 
-# Create token for service account
+# 2. Mint a token for it
 curl -X POST https://yourstack.grafana.net/api/serviceaccounts/{id}/tokens \
   -H "Authorization: Bearer <admin-token>" \
   -H "Content-Type: application/json" \
   -d '{"name": "ci-token", "secondsToLive": 0}'
+
+# 3. Verify the token works (test on a harmless endpoint)
+curl https://yourstack.grafana.net/api/org \
+  -H "Authorization: Bearer <new-token>"
+# 200 + org JSON → token works. Anything else → re-check role assignment in step 1.
 ```
 
-Provisioning via YAML:
+Provisioning equivalent (YAML, declarative):
+
 ```yaml
 # provisioning/access-control/service_accounts.yaml
 apiVersion: 1
@@ -93,151 +148,8 @@ serviceAccounts:
       - name: alloy-token
 ```
 
-## SSO / Auth Configuration
+## References
 
-### OAuth (grafana.ini)
-
-```ini
-[auth.generic_oauth]
-enabled = true
-name = Okta
-allow_sign_up = true
-client_id = your_client_id
-client_secret = your_client_secret
-scopes = openid profile email groups
-auth_url = https://your-org.okta.com/oauth2/v1/authorize
-token_url = https://your-org.okta.com/oauth2/v1/token
-api_url = https://your-org.okta.com/oauth2/v1/userinfo
-role_attribute_path = contains(groups[*], 'grafana-admins') && 'Admin' || 'Viewer'
-groups_attribute_path = groups
-```
-
-### SAML (Enterprise)
-
-```ini
-[auth.saml]
-enabled = true
-certificate_path = /etc/grafana/saml/grafana.crt
-private_key_path = /etc/grafana/saml/grafana.key
-idp_metadata_path = /etc/grafana/saml/idp-metadata.xml
-max_issue_delay = 90s
-metadata_valid_duration = 48h
-assertion_attribute_login = mail
-assertion_attribute_email = mail
-assertion_attribute_name = displayName
-assertion_attribute_role = role
-role_values_admin = grafana-admins
-role_values_editor = grafana-editors
-```
-
-### GitHub OAuth
-
-```ini
-[auth.github]
-enabled = true
-allow_sign_up = true
-client_id = your_github_client_id
-client_secret = your_github_client_secret
-scopes = user:email,read:org
-auth_url = https://github.com/login/oauth/authorize
-token_url = https://github.com/login/oauth/access_token
-api_url = https://api.github.com/user
-allowed_organizations = ["your-org"]
-team_ids = [123456]
-role_attribute_path = "Admin"
-```
-
-## Cloud API for Stack Management
-
-```bash
-# List stacks
-curl https://grafana.com/api/instances \
-  -H "Authorization: Bearer <grafana-com-api-key>"
-
-# Create stack
-curl -X POST https://grafana.com/api/instances \
-  -H "Authorization: Bearer <grafana-com-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-new-stack", "slug": "my-new-stack", "region": "us-east-0", "plan": "grafana-cloud-free"}'
-
-# Delete stack
-curl -X DELETE https://grafana.com/api/instances/{id} \
-  -H "Authorization: Bearer <grafana-com-api-key>"
-```
-
-## Terraform Provider
-
-```hcl
-terraform {
-  required_providers {
-    grafana = {
-      source  = "grafana/grafana"
-      version = "~> 2.0"
-    }
-  }
-}
-
-provider "grafana" {
-  url  = "https://yourstack.grafana.net"
-  auth = var.grafana_service_account_token
-}
-
-resource "grafana_team" "platform" {
-  name  = "Platform Team"
-  email = "platform@example.com"
-}
-
-resource "grafana_user" "alice" {
-  email    = "alice@example.com"
-  login    = "alice"
-  name     = "Alice"
-  password = "changeme"
-}
-
-resource "grafana_team_member" "platform_alice" {
-  team_id = grafana_team.platform.id
-  user_id = grafana_user.alice.id
-}
-
-resource "grafana_folder" "platform_dashboards" {
-  title = "Platform Dashboards"
-}
-
-resource "grafana_dashboard" "overview" {
-  folder      = grafana_folder.platform_dashboards.uid
-  config_json = file("dashboards/overview.json")
-}
-```
-
-## Audit Logs
-
-```bash
-# Query audit logs (Enterprise/Cloud)
-GET /api/admin/auditlogs?query=login&from=1706745600&to=1706832000&limit=50
-```
-
-## Key Admin API Endpoints
-
-```bash
-# List org users
-GET /api/org/users
-
-# Invite user to org
-POST /api/org/invites
-{ "loginOrEmail": "user@example.com", "role": "Editor", "sendEmail": true }
-
-# Update user org role
-PATCH /api/org/users/{userId}
-{ "role": "Admin" }
-
-# List teams
-GET /api/teams/search?name=platform
-
-# Create team
-POST /api/teams
-{ "name": "Platform Team", "email": "platform@example.com" }
-
-# Add user to team
-POST /api/teams/{teamId}/members
-{ "userId": 2 }
-```
+- [`references/sso.md`](references/sso.md) — OAuth / SAML / GitHub OAuth config + the 5-step SSO verification pattern + common failure modes
+- [`references/terraform.md`](references/terraform.md) — Terraform provider config + common resource patterns (teams, users, folders, dashboards) + drift troubleshooting
+- [`references/api-reference.md`](references/api-reference.md) — full Cloud API + Stack API endpoint reference + audit-log queries
