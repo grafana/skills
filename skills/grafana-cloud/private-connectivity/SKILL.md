@@ -14,52 +14,53 @@ Send metrics, logs, traces, and profiles to Grafana Cloud entirely over your clo
 
 ### Setting up AWS PrivateLink (most common)
 
-```bash
-# 1. Find your service names
-#    Grafana Cloud → Stack Details → "Send using AWS PrivateLink"
-#    Note one service name per signal type (metrics / logs / traces / profiles).
+1. **Find your service names.** Grafana Cloud → Stack Details → "Send using AWS PrivateLink". Note one service name per signal type (metrics / logs / traces / profiles).
 
-# 2. Create an Interface VPC Endpoint per signal type
-aws ec2 create-vpc-endpoint \
-  --vpc-id vpc-12345 \
-  --service-name com.amazonaws.vpce.us-east-1.vpce-svc-0abc123 \
-  --vpc-endpoint-type Interface \
-  --subnet-ids subnet-12345 \
-  --security-group-ids sg-12345 \
-  --private-dns-enabled
+2. **Create an Interface VPC Endpoint per signal type:**
 
-# 3. Verify private DNS resolves (CRITICAL — if this returns a public IP,
-#    Alloy will silently keep using the public path and you'll keep paying egress)
-dig +short prometheus-private.us-east-0.grafana.net
-# Expected: a 10.x.x.x / 172.16-31.x.x / 192.168.x.x address
-# Public IP returned → check `private_dns_enabled = true` was set and the VPC has DNS hostnames enabled
-```
+   ```bash
+   aws ec2 create-vpc-endpoint \
+     --vpc-id vpc-12345 \
+     --service-name com.amazonaws.vpce.us-east-1.vpce-svc-0abc123 \
+     --vpc-endpoint-type Interface \
+     --subnet-ids subnet-12345 \
+     --security-group-ids sg-12345 \
+     --private-dns-enabled
+   ```
 
-4. Update Alloy to use the private endpoint:
+3. **Verify private DNS resolves** (CRITICAL — if this returns a public IP, Alloy will silently keep using the public path and you'll keep paying egress):
 
-```alloy
-prometheus.remote_write "cloud_private" {
-  endpoint {
-    url = "https://prometheus-private.us-east-0.grafana.net/api/prom/push"
-    basic_auth {
-      username = sys.env("PROM_USER")
-      password = sys.env("GRAFANA_CLOUD_API_KEY")
-    }
-  }
-}
+   ```bash
+   dig +short prometheus-private.us-east-0.grafana.net
+   # Expected: a 10.x.x.x / 172.16-31.x.x / 192.168.x.x address
+   # Public IP returned → check `private_dns_enabled = true` was set and the VPC has DNS hostnames enabled
+   ```
 
-loki.write "cloud_private" {
-  endpoint {
-    url = "https://logs-private.us-east-0.grafana.net/loki/api/v1/push"
-    basic_auth {
-      username = sys.env("LOKI_USER")
-      password = sys.env("GRAFANA_CLOUD_API_KEY")
-    }
-  }
-}
-```
+4. **Update Alloy to use the private endpoint:**
 
-5. Confirm traffic is flowing over PrivateLink: check the VPC endpoint's CloudWatch metrics for `BytesProcessed` after Alloy starts pushing.
+   ```alloy
+   prometheus.remote_write "cloud_private" {
+     endpoint {
+       url = "https://prometheus-private.us-east-0.grafana.net/api/prom/push"
+       basic_auth {
+         username = sys.env("PROM_USER")
+         password = sys.env("GRAFANA_CLOUD_API_KEY")
+       }
+     }
+   }
+
+   loki.write "cloud_private" {
+     endpoint {
+       url = "https://logs-private.us-east-0.grafana.net/loki/api/v1/push"
+       basic_auth {
+         username = sys.env("LOKI_USER")
+         password = sys.env("GRAFANA_CLOUD_API_KEY")
+       }
+     }
+   }
+   ```
+
+5. **Confirm traffic is flowing over PrivateLink:** check the VPC endpoint's CloudWatch metrics for `BytesProcessed` after Alloy starts pushing.
 
 Full Terraform + per-signal-type endpoint resources in [references/aws.md](references/aws.md).
 

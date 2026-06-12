@@ -129,6 +129,14 @@ Correlation keys: `service.name` joins all signals; trace exemplars embed trace 
 - Faro `/collect` returns 401 → wrong app key; 404 → region in URL doesn't match the Faro app
 - No GenAI metrics → confirm OpenLIT version matches OTel semantic-conv version expected by Cloud; verify auth with curl as in workflow #3
 
+## References
+
+- [`references/apm.md`](references/apm.md) — APM essentials: how RED metrics are generated, required OTel resource attributes, Alloy config, correlation links
+- [`references/apm-setup.md`](references/apm-setup.md) — deep dive: full per-language OTel SDK setup (Node / Python / Java / Go), span-metrics options, complete Alloy config
+- [`references/faro.md`](references/faro.md) — Faro essentials: SDK init, instrumentations, session replay
+- [`references/frontend-observability.md`](references/frontend-observability.md) — deep dive: full Faro SDK reference, React/Vue/Angular integration, custom events, source maps
+- [`references/ai-observability.md`](references/ai-observability.md) — OpenLIT auto-instrumentation for OpenAI / Anthropic / Bedrock / Vertex AI
+
 ## Resources
 
 - [App Observability docs](https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/)

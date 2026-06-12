@@ -91,6 +91,13 @@ faro.api.pushEvent('faro_smoketest', { ts: Date.now().toString() });
 - k6 cloud run "ABORTED_THRESHOLD" → a threshold tripped; inspect the run page to see which one
 - Faro events not landing → check the browser network call to `/collect` returns 202; common cause is wrong `apiKey` or `url` (must match the FE Observability app)
 
+## References
+
+- [`references/synthetic.md`](references/synthetic.md) — Synthetic Monitoring essentials: check types, key PromQL metrics, alert rules
+- [`references/synthetic-monitoring.md`](references/synthetic-monitoring.md) — deep dive: full API for check CRUD, probe selection, scripted (k6) checks, multi-step browser checks
+- [`references/k6-and-faro.md`](references/k6-and-faro.md) — k6 cloud script + Faro Web SDK init snippets for end-to-end testing
+- [`references/k6-cloud.md`](references/k6-cloud.md) — deep dive: k6 cloud config (project + load zones + thresholds), CI integration, run analysis
+
 ## Resources
 
 - [Synthetic Monitoring docs](https://grafana.com/docs/grafana-cloud/testing/synthetic-monitoring/)
