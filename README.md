@@ -84,6 +84,7 @@ Grafana Cloud — fleet management, cloud integrations, cost optimization, and A
 | [send-data](skills/grafana-cloud/send-data) | Send telemetry to Grafana Cloud — metrics, logs, traces, and profiles via Alloy or SDKs |
 | [fleet-management](skills/grafana-cloud/fleet-management) | Manage Grafana Alloy collector fleets with remote configuration and OpAMP |
 | [cloud-integrations](skills/grafana-cloud/cloud-integrations) | Connect AWS, Azure, and other cloud providers to Grafana Cloud |
+| [enumerate-environment](skills/grafana-cloud/cloud-integrations/enumerate-environment) | Inventory running software across Docker, Multipass, and Kubernetes — grouped by category and namespace (read-only) |
 | [infrastructure](skills/grafana-cloud/infrastructure) | Infrastructure monitoring — Kubernetes, host/container metrics, and cloud integrations |
 | [app-observability](skills/grafana-cloud/app-observability) | Application Observability (APM), Frontend Observability (Faro), and AI Observability |
 | [database-observability](skills/grafana-cloud/database-observability) | Query-level performance insights for MySQL and PostgreSQL |
