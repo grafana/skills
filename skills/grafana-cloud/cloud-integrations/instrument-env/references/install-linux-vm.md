@@ -55,9 +55,8 @@ and check `sudo systemctl status alloy.service`.
 After the base install, configure the host and its enumerated services from Grafana Cloud's
 **pre-built integrations** instead of hand-writing exporter blocks.
 
-> **TEMPORARY:** `gcx integrations` is gated behind a dev build. Until it ships in a release,
-> invoke the dev binary at `/home/ergrafana/Documents/Github/gcx/bin/gcx`. Switch back to the
-> regular `gcx` on PATH once released.
+> **Note:** the `gcx integrations` subcommand requires a gcx build that includes it. If your
+> `gcx` reports the command as unknown, update to a version that ships it.
 
 ### 1. Match the inventory against the catalog
 
@@ -154,8 +153,3 @@ Setting `GCLOUD_FM_URL` (plus `GCLOUD_FM_POLL_FREQUENCY` and `GCLOUD_FM_HOSTED_I
 the script to a remotely-managed config (`config-fm.alloy`) driven by Grafana Cloud Fleet
 Management instead of the local standalone config. This skill's flow is the standalone one;
 defer FM-managed installs to the `fleet-management` skill.
-
-<!-- TODO(research):
-- [ ] Nested-environment handling: VM that runs its own Docker/Compose stack — host Alloy vs containerized Alloy decision
-- [ ] Detecting/handling a pre-existing Alloy install before re-running the script (rpm path uses --reinstall; dpkg -i upgrades in place)
--->

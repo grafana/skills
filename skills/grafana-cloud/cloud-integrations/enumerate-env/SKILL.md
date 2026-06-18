@@ -1,5 +1,5 @@
 ---
-name: enumerate-environment
+name: enumerate-env
 license: Apache-2.0
 description: >
   Enumerate the container, VM, and cluster environments running on a host and produce a single

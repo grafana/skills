@@ -26,7 +26,7 @@ What the base contains (as reviewed — re-verify against the fetched copy each 
   do the same when deploying the config by other means.
 
 The base covers **only Alloy self-metrics** — exactly the "self-metrics only" coverage level
-the enumerate-environment skill reports. Instrumenting the discovered services means
+the enumerate-env skill reports. Instrumenting the discovered services means
 **appending components to this base**, never rewriting it:
 
 - new metrics components forward to the existing
@@ -36,10 +36,12 @@ the enumerate-environment skill reports. Instrumenting the discovered services m
 
 ## Service → component snippets
 
-<!-- TODO(research):
-- [ ] Service → component table mirroring enumerate-environment Step 3 (mysql/mariadb → prometheus.exporter.mysql, postgres → prometheus.exporter.postgres, redis → prometheus.exporter.redis, host → prometheus.exporter.unix, app /metrics → prometheus.scrape, OTel apps → otelcol.receiver.*)
-- [ ] Log sources: loki.source.file (VM services), loki.source.journal, loki.source.kubernetes / discovery
-- [ ] Kubernetes discovery patterns: discovery.kubernetes + discovery.relabel keep-rules
-- [ ] Extending an existing config without duplicating blocks (idempotency)
-- [ ] Database exporter prerequisites (monitoring user/grants, DSN secrets)
--->
+The mapping from a detected service to its Alloy component is driven by Grafana Cloud's
+pre-built integrations: match each enumerated service to an integration slug and append its
+snippets, per [install-linux-vm.md](install-linux-vm.md) ("Match enumerated services to
+pre-built integrations"). The `enumerate-env` skill's Step 3 table lists the service →
+exporter pairings (mysql/mariadb → `prometheus.exporter.mysql`, postgres →
+`prometheus.exporter.postgres`, redis → `prometheus.exporter.redis`, host →
+`prometheus.exporter.unix`, an app's `/metrics` → `prometheus.scrape`, OTel apps →
+`otelcol.receiver.*`). Services with no matching integration are configured by hand from the
+component reference docs those integrations link to.

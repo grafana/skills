@@ -3,21 +3,21 @@ name: instrument-env
 license: Apache-2.0
 description: >
   Install and configure Grafana Alloy to instrument the software discovered by the
-  enumerate-environment skill, shipping metrics and logs to Grafana Cloud. Takes the
-  environment inventory as a starting point (Linux / non-Kubernetes hosts are the primary
-  flow), sets up a Grafana Cloud access policy token, discovers the target stack via gcx,
+  enumerate-env skill, shipping metrics and logs to Grafana Cloud. Takes the
+  environment inventory as a starting point (Linux / non-Kubernetes hosts), sets up a
+  Grafana Cloud access policy token, discovers the target stack via gcx,
   installs Alloy per host with the official onboarding script, applies the pre-built
   Grafana Cloud integrations (linux-node plus one per detected application), and summarizes
   the result. Use when the user asks to instrument an environment or host, install or
   deploy Alloy, set up monitoring for discovered services, send metrics/logs to Grafana
-  Cloud, close the coverage gaps found by enumerate-environment, or create a telemetry
+  Cloud, close the coverage gaps found by enumerate-env, or create a telemetry
   token. Triggers on phrases like "instrument my environment", "install alloy", "set up
   monitoring", "ship metrics to Grafana Cloud", "fix the coverage gaps".
 ---
 
 # Instrument Environment
 
-Take the inventory produced by the `enumerate-environment` skill and close its
+Take the inventory produced by the `enumerate-env` skill and close its
 missing-collector gaps: install Grafana Alloy where it is absent, configure it with the
 pre-built Grafana Cloud integrations matching the services actually running there, and ship
 metrics and logs to **Grafana Cloud**.
@@ -27,22 +27,18 @@ happen on the user's hosts — each prompt below is a hard gate; never proceed p
 assumed answer, never modify or restart an existing collector without confirmation, and
 never emit raw credentials — tokens are written to config files, not chat.
 
-The workflow below is the primary flow and targets **Linux, non-Kubernetes hosts** (bare
-metal, Multipass or other VMs). Kubernetes and Docker Compose paths are not yet specified —
-see [Future work](#future-work-tbd).
+The workflow below targets **Linux, non-Kubernetes hosts** (bare metal, Multipass or other
+VMs).
 
 ## Step 1 — Obtain the environment inventory (prompt if missing)
 
-Use the most recent `enumerate-environment` output available in the conversation or a saved
-report file. **If none exists, prompt the user**: run `enumerate-environment` now, or cancel
+Use the most recent `enumerate-env` output available in the conversation or a saved
+report file. **If none exists, prompt the user**: run `enumerate-env` now, or cancel
 `instrument-env`. Those are the only two options — the inventory (hosts, software per host,
 Alloy coverage) is required input and there is no manual fallback.
 
 From the inventory, extract the work list: each Linux host to instrument and the
 applications enumerated on it (e.g. the host itself plus a pgbouncer service).
-
-<!-- TODO(research): define the exact inventory fields consumed, and the precedence rule
-     between "extend existing Alloy" vs "install new" -->
 
 ## Step 2 — Verify gcx login and obtain the Alloy token (prompt)
 
@@ -60,20 +56,19 @@ in that doc (`stacks:read` is the required baseline). General gcx setup lives at
 **2. Alloy token.** Alloy needs a Grafana Cloud **access-policy token** scoped to
 `metrics:write`, `logs:write`, `traces:write`, `profiles:write`, `fleet-management:read`.
 **Prompt the user to provide one** — they create it manually in the Grafana Cloud portal
-(see [references/grafana-alloy-token-guide.md](references/grafana-alloy-token-guide.md),
-Option A). Ask them to place it in a mode-600 env file (e.g.
-`~/.config/gcx/alloy-token.env` containing `GCLOUD_RW_API_KEY=…`) rather than pasting it
-into chat; never echo a token value back into the conversation — confirm receipt and move
-on. Operational details in [references/tokens.md](references/tokens.md).
+(see [references/tokens.md](references/tokens.md), Option A). Ask them to place it in a
+mode-600 env file (e.g. `~/.config/gcx/alloy-token.env` containing `GCLOUD_RW_API_KEY=…`)
+rather than pasting it into chat; never echo a token value back into the conversation —
+confirm receipt and move on. Operational details in
+[references/tokens.md](references/tokens.md).
 
-Agent-driven token creation from an Admin API token is deliberately **out of scope** for
-now — the design and lessons learned are parked in
-[references/future-admin-token-flow.md](references/future-admin-token-flow.md).
+Agent-driven token creation from an Admin API token is deliberately **out of scope** for now.
 
 ## Step 3 — Discover stack and region via gcx (prompt on ambiguity)
 
 Use `gcx` to gather the connection inputs the config needs (see
-[references/config-patterns.md](references/config-patterns.md) and the token guide):
+[references/config-patterns.md](references/config-patterns.md) and
+[references/tokens.md](references/tokens.md)):
 **region** and numeric **stack ID** via `gcx stacks get <stack-slug>`, plus the hosted
 metrics/logs push URLs and instance IDs (`GCLOUD_HOSTED_METRICS_URL/_ID`,
 `GCLOUD_HOSTED_LOGS_URL/_ID`).
@@ -158,23 +153,6 @@ Once all hosts are done (or all fanned-out agents have returned), gather a singl
 for the user: per host — Alloy installed (version), integrations applied, pre-instructions
 performed, anything skipped or failed, and whether the Alloy service is healthy. **Halt
 here.** Do not continue into dashboards, alerts, or Terraform without a new instruction.
-
-<!-- TODO(research): verification beyond service health — alloy fmt/validate, component
-     health via the Alloy UI/API, querying the stack to confirm new series/streams -->
-
-## Future work (TBD)
-
-- **Terraform plan output** — generate a Terraform plan that installs each applied
-  integration's dashboards and alerts into the stack (replacing the docs' portal-UI
-  "Install" step). Not implemented yet; do not attempt it — just note it in the Step 8
-  summary as the next step.
-- **Agent-created Alloy tokens** — creating the access policy and token(s) from a
-  user-supplied Admin API token, including per-host tokens. Design and lessons learned in
-  [references/future-admin-token-flow.md](references/future-admin-token-flow.md).
-- **Kubernetes / Docker Compose paths** — reference stubs exist
-  ([install-kubernetes.md](references/install-kubernetes.md),
-  [install-docker.md](references/install-docker.md)) but the workflow above does not cover
-  them yet.
 
 ## Best practices
 
