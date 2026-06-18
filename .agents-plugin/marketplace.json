@@ -59,6 +59,7 @@
         "./skills/grafana-cloud/assistant-mcp",
         "./skills/grafana-cloud/cloud-integrations",
         "./skills/grafana-cloud/cloud-integrations/enumerate-environment",
+        "./skills/grafana-cloud/cloud-integrations/instrument-env",
         "./skills/grafana-cloud/fleet-management",
         "./skills/grafana-cloud/send-data",
         "./skills/grafana-cloud/admin",

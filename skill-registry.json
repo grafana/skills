@@ -53,6 +53,12 @@
           "description": "Enumerate Docker, Multipass, and Kubernetes environments on a host and inventory all running software grouped by category and namespace. Strictly read-only; detects whether Alloy is already installed. Use when the user asks to enumerate or inventory a local environment, list what's running, see what's deployed across docker-compose / multipass / kubernetes, or audit a host.",
           "path": "skills/grafana-cloud/cloud-integrations/enumerate-environment",
           "tags": ["grafana-cloud", "inventory", "kubernetes", "multipass", "docker", "alloy", "read-only"]
+        },
+        {
+          "name": "instrument-env",
+          "description": "Install and configure Grafana Alloy to instrument services discovered by enumerate-environment, set up a Grafana Cloud access policy token, and verify telemetry is flowing. Use when the user asks to instrument an environment, install Alloy, or ship metrics/logs to Grafana Cloud.",
+          "path": "skills/grafana-cloud/cloud-integrations/instrument-env",
+          "tags": ["grafana-cloud", "alloy", "instrumentation", "kubernetes", "multipass", "docker", "tokens"]
         }
       ]
     },
