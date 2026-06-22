@@ -86,12 +86,10 @@ For each label, ask:
 - Does this label logically segment the metric the way users think about it?
 - Would removing this label force users to use exemplars, logs, or traces instead — and would that be acceptable for the rare lookup case?
 
-When a label *fails* this test — it's on the series but queries don't reliably use it — there are exactly **two correct paths**, depending on what the label is:
+When a label *fails* this test, there are two correct fixes (never a scrape-time drop — see [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)):
 
-- **It's constant metadata** (fixed for the target's lifetime — `version`, `git_sha`, `az`, `region`) → factor it out with an **[info metric](#info-metric-pattern-for-high-churn-metadata)** and recover it via a query-time join. This is the bandwidth win covered above.
-- **It makes series genuinely unique but you don't need it at full resolution** (`pod`, `instance`) → aggregate it away post-ingest with **[Adaptive Metrics](#3-adaptive-metrics-grafana-cloud--post-ingest-the-safe-way-to-reduce-cardinality)**, correctly and reversibly.
-
-What is **not** a path is dropping the label at scrape time to "clean up" access patterns — that's [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique) violation, and it breaks the data. (The exception that precedes both paths: if you control the code and the label simply shouldn't exist, the best fix is to stop emitting it — see [Fix in the Application](#1-fix-in-the-application-best).)
+- **Constant metadata** (`version`, `git_sha`, `az`, `region`) → factor out into an [info metric](#info-metric-pattern-for-high-churn-metadata).
+- **Genuinely unique, not needed at full resolution** (`pod`, `instance`) → aggregate away post-ingest with [Adaptive Metrics](#3-adaptive-metrics-grafana-cloud--post-ingest-the-safe-way-to-reduce-cardinality).
 
 ### Static vs. Dynamic Label Values
 
@@ -112,13 +110,13 @@ Every histogram metric multiplies its base cardinality by **(bucket count + 3)**
 - Default `prometheus.DefBuckets` has 11 buckets → **14× multiplier**
 - A histogram with `method`, `path`, `status` already at 1,000 series becomes **14,000 series** after adding histogram cardinality
 - **Always trim histogram label cardinality first** — labels matter 14× more on histograms than on counters/gauges
-- Consider native histograms (Prometheus 2.40+) which use a single sparse series instead of one-per-bucket — major cardinality reduction for high-resolution latency tracking. Two caveats: **(1)** native histogram support is uneven across client libraries — check whether your language's library (and version) actually implements them and how you opt in before assuming they're available; **(2)** on Grafana Cloud, native histograms are billed at **25% of their active bucket count** (rather than counting every bucket as a full active series), so the cost model is different from — and much cheaper than — classic `_bucket` series. Factor that 25% rate in when you estimate the savings.
+- Consider native histograms (Prometheus 2.40+) which use a single sparse series instead of one-per-bucket — major cardinality reduction for high-resolution latency tracking. Two caveats: **(1)** client-library support is uneven — confirm your language's library (and version) implements them and how to opt in; **(2)** Grafana Cloud bills native histograms at **25% of their active bucket count**, not one active series per bucket — much cheaper than classic `_bucket` series, so factor that rate into savings estimates.
 
 ### Info-Metric Pattern (for high-churn metadata)
 
 When you want to *know* about a label (e.g., `version`, `git_sha`, `image_tag`) without paying for it on every metric, use an info metric.
 
-The win here is **bandwidth**, the same win you get from not emitting an unnecessary constant label like `az` on every series. A metadata label whose value is fixed for the lifetime of a target — `version`, `git_sha`, `az`, `region` — repeats the same string on *every* series and in *every* remote_write payload, scrape after scrape. That's bytes on the wire and storage you pay for continuously to carry a value that never changes. The info-metric pattern factors that constant out: the metadata lives on exactly one series, and every other metric stays lean. (For a truly static target attribute like `az` that you don't even need to join on, the cheapest option is to not emit it at all; the info metric is for when you *do* want to recover the value at query time.)
+The win is **bandwidth**: a metadata label whose value is fixed for a target's lifetime (`version`, `git_sha`, `az`, `region`) repeats the same string on every series and in every remote_write payload, scrape after scrape — bytes you pay for continuously to carry a value that never changes. An info metric factors that constant onto exactly one series. (For a static attribute you never join on, like `az`, cheaper still is to not emit it at all.)
 
 Use an info metric:
 
@@ -135,7 +133,7 @@ sum by (version) (
 )
 ```
 
-Join on `instance`, not `job` or `app`: each process runs exactly one build, so there is one `app_build_info` series per `instance`. Matching on a coarser key breaks during rolling deploys, when two versions are live at once — `group_left` then sees multiple right-hand series for the same key and errors out. The `version` label lives on exactly one series per process, not on every metric.
+Join on `instance`, not `job`/`app`: each process runs exactly one build, so there's one `app_build_info` per `instance`. A coarser key breaks during rolling deploys — two versions live at once means multiple right-hand matches and `group_left` errors out. The `version` label lives on one series per process, not on every metric.
 
 #### The `info()` function (simpler join)
 
@@ -239,24 +237,16 @@ Instead:
 
 ## Relabeling with Alloy
 
-The fixes below that happen *at collection time* — setting target labels, dropping targets, removing duplicate labels — are configured in your collector. On Grafana Cloud the recommended collector is **[Grafana Alloy](https://grafana.com/docs/alloy/)**, so the examples in this skill use Alloy's config syntax rather than classic Prometheus YAML. The two map directly:
+Collection-time fixes (setting target labels, dropping targets, removing duplicate labels) are configured in your collector. On Grafana Cloud the recommended collector is **[Grafana Alloy](https://grafana.com/docs/alloy/)**, so examples here use Alloy syntax rather than Prometheus YAML. The two map directly:
 
 | Prometheus YAML | Alloy component | When it runs |
 |---|---|---|
-| `relabel_configs` | `discovery.relabel` | *Before* the scrape — rewrites the target list (set `env`/`cluster`/`team`, drop targets, rename `instance`) |
-| `metric_relabel_configs` | `prometheus.relabel` | *After* the scrape, before forwarding — operates on scraped samples |
+| `relabel_configs` | `discovery.relabel` | *Before* the scrape — rewrites the target list |
+| `metric_relabel_configs` | `prometheus.relabel` | *After* the scrape — operates on scraped samples |
 
-Both expose the same primitives you know from Prometheus — `source_labels`, `regex`, `action`, `target_label` — just as repeated `rule { ... }` blocks instead of YAML list items. A typical pipeline is `discovery.kubernetes` (find targets) → `discovery.relabel` (shape their labels) → `prometheus.scrape` (scrape them) → optional `prometheus.relabel` → `prometheus.remote_write` (ship to Grafana Cloud).
+Same primitives (`source_labels`, `regex`, `action`, `target_label`), expressed as repeated `rule { ... }` blocks. Typical pipeline: `discovery.kubernetes` → `discovery.relabel` → `prometheus.scrape` → `prometheus.remote_write`. [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique) applies identically — a `prometheus.relabel` that drops a distinguishing label breaks the data just like `metric_relabel_configs`. For full configuration help, route to the **`alloy`** skill.
 
-**The One Rule applies identically in Alloy.** A `prometheus.relabel` block that drops a distinguishing label breaks the data exactly the way `metric_relabel_configs` does — Alloy syntax doesn't make it safe.
-
-For full Alloy configuration help — component reference, syntax, pipeline wiring, conversion from existing Prometheus/Agent configs — route to the **`alloy`** skill. This skill only shows the relabeling snippets relevant to label strategy.
-
-### A note on the upstream OpenTelemetry Collector
-
-The upstream **[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)** is **not a Grafana-supported collector** — Grafana Support covers **Alloy**, not the vanilla Collector. Since Alloy is Grafana's distribution built directly on OpenTelemetry Collector components, you get the Collector's processor and pipeline model *with* Grafana support by running Alloy. If you're standardized on the upstream Collector today, the recommended path for Grafana Cloud is to migrate to Alloy (route to the **`alloy`** skill).
-
-The label-strategy principles are collector-agnostic regardless: where the upstream Collector uses **processors** (`resource`/`attributes` to set or delete labels, `filter` to drop a metric) instead of relabel rules, the same constraint still holds — **[The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique) applies identically.** Deleting an identifying attribute with a processor merges distinct series and breaks counter math exactly like a scrape-time `labeldrop`; the processor framing doesn't make it safe.
+> ⚠️ The upstream **[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)** is **not** Grafana-supported — Grafana Support covers Alloy (its distribution built on Collector components). If you run it, migrate to Alloy for Grafana Cloud. The principles are collector-agnostic either way: the Collector uses **processors** (`resource`/`attributes` to set/delete labels, `filter` to drop a metric), but deleting an identifying attribute breaks counter math exactly like a scrape-time `labeldrop`.
 
 ---
 
@@ -276,7 +266,7 @@ If you control the code, this is always the right fix. It saves cost on every do
 
 #### Templating HTTP path labels
 
-The single most common cardinality blowup at the source is recording the raw request path as a `path` (or `route`) label. Because real URLs embed identifiers — user IDs, order numbers, slugs, UUIDs — the label is effectively unbounded: every distinct ID produces a brand-new series, and on a busy endpoint the series count grows without limit and never stabilizes. The fix is to record the *route template* — the matched routing pattern with its parameters left as placeholders — rather than the concrete URL that was requested. This collapses millions of potential paths down to the handful of routes your application actually defines, turning an unbounded label into a bounded one (one value per registered route) while preserving exactly the dimension dashboards and alerts care about: "which endpoint." Most web frameworks expose the matched template on the request after routing (Express's `req.route.path`, Flask's `request.url_rule.rule`, Spring's `HandlerMapping.bestMatchingPattern`, Go's `chi`/`gorilla` route patterns), so the templated value is already available — you just have to record *it* instead of the raw URL. Do this at instrumentation time; you cannot recover it later, because by the time the raw path is a label the series are already distinct and collapsing them with relabeling breaks the data (see [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)).
+The most common source-side blowup is recording the raw request path as a `path` (or `route`) label. Real URLs embed identifiers (user IDs, slugs, UUIDs), so the label is effectively unbounded — every distinct ID is a new series and the count never stabilizes. Record the *route template* (the matched routing pattern with parameters as placeholders) instead: this collapses millions of paths to one value per registered route while preserving the dimension dashboards care about — "which endpoint." Frameworks expose the matched template after routing (Express `req.route.path`, Flask `request.url_rule.rule`, Spring `bestMatchingPattern`, Go chi/gorilla patterns), so just record *it*. Do this at instrumentation time — you can't recover it later, since by then the series are already distinct ([The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)).
 
 ```python
 # ❌ Unbounded: every distinct ID is a new series
@@ -296,7 +286,7 @@ http_requests_total{method="POST", path="/orders"}                 87
 http_requests_total{method="GET", path="/orders/<order_id>"}      512
 ```
 
-Note the `<unmatched>` fallback: requests that hit no route (404s, scanners probing random URLs) must map to a single bucket, not to their raw path — otherwise unmatched traffic becomes its own unbounded source. Bounding *that* bucket is just as important as templating the matched ones.
+Note the `<unmatched>` fallback: unrouted requests (404s, scanners) must map to one bucket, not their raw path — otherwise unmatched traffic is its own unbounded source.
 
 ### 2. Target relabeling (`discovery.relabel` in Alloy)
 
@@ -345,7 +335,7 @@ It works *after* ingest, as aggregation rules applied in Grafana Cloud. Cruciall
 
 This is the difference between "the data is now cheaper" (Adaptive Metrics) and "the data is now wrong" (`labeldrop` at scrape). Route the user to the `adaptive-metrics` skill for rule design.
 
-**The canonical case is the `pod` label.** `pod` is high-cardinality and transient — it rolls on every deploy and restart, so it dominates churn and series count — but it also makes K8s series unique, so you can never drop it at scrape ([The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)). When `pod`-level series are genuinely too expensive in Grafana Cloud, Adaptive Metrics is exactly the right tool: it aggregates `pod` away *correctly* — counter-reset-aware, audited, reversible — instead of corrupting the raw data at scrape.
+**The canonical case is the `pod` label** — high-cardinality and transient, but it makes K8s series unique, so it can never be dropped at scrape ([The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)). When `pod`-level series are too expensive, Adaptive Metrics aggregates `pod` away correctly instead of corrupting the raw data.
 
 ### 4. `metric_relabel_configs` (narrow, safe uses only)
 
