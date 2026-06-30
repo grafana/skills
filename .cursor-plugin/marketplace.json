@@ -29,6 +29,7 @@
         "./skills/grafana-core/dashboarding",
         "./skills/grafana-core/promql",
         "./skills/grafana-core/grafana-oss",
+        "./skills/grafana-core/datasource-provisioning",
         "./skills/grafana-core/alloy",
         "./skills/grafana-core/beyla",
         "./skills/grafana-core/opentelemetry",
