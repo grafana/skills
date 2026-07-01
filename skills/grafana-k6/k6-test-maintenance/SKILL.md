@@ -267,11 +267,9 @@ After confirmation:
 2. Validate: `k6 inspect` (parse check) or `validate_script` (mcp-k6)
 3. For cloud-hosted scripts, follow k6-manage Section 5 safe-edit recipe
    (backup → PUT → sha256-verify)
-4. **Verify per "Mandatory post-edit verification" above.** Threshold
-   changes are Class A -- use the historical pass/fail prediction recipe.
-   For loosening, the prediction table also surfaces which past failing
-   runs are being "hidden" by the change, which the user should see
-   before the PUT.
+4. **Verify per "Mandatory post-edit verification" above** -- Class A
+   (historical pass/fail prediction). For loosening, the table also shows which
+   past failing runs the change would "hide" -- surface before the PUT.
 5. Confirm the change was applied.
 
 ---
@@ -320,12 +318,10 @@ Wait for user confirmation before applying each one.
 
 After all changes are applied:
 1. Run `k6 inspect` or `validate_script` to confirm the script parses
-2. **Verify per "Mandatory post-edit verification" above.** Migration
-   edits are Class B by definition (imports and APIs changed), so choose
-   the short-vs-long-test path based on the saved test's expected
-   duration. Don't skip the cloud smoke for long tests just because the
-   change "looks like a rename" -- migration bugs often hide in
-   cloud-only behaviour (load-zone connectivity, env-var resolution).
+2. **Verify per "Mandatory post-edit verification" above** -- Class B
+   (imports/APIs changed); pick short-vs-long by test duration. Don't skip the
+   cloud smoke on long tests -- migration bugs hide in cloud-only behaviour
+   (load-zone connectivity, env-var resolution).
 3. Present the verification result.
 
 ---
