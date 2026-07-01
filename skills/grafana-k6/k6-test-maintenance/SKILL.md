@@ -77,10 +77,11 @@ present an unvalidated script to the user.
 
 ## Mandatory post-edit verification
 
-After editing a cloud-hosted script, verify it took effect. Verification depth
-depends on the **change class**, not test duration -- most edits don't need a
-full run, and production tests may run for hours, so "just run it after editing"
-doesn't work.
+After applying a change to a cloud-hosted script, verify the change took
+effect correctly. The depth of verification needed depends on the **change
+class**, not on the test's duration. Most edits don't need a full test run,
+and customers' production tests may run for hours -- so a one-size-fits-all
+"run the test after editing" rule doesn't work.
 
 ### Change classification
 
@@ -109,8 +110,10 @@ is deliberately narrow.
 
 ### Class A: historical pass/fail prediction
 
-For threshold-only changes, a fresh run adds no information -- the new threshold
-evaluates the same historical metric data the old one did. Verify deterministically:
+For threshold-only changes, a fresh cloud run adds no information that the
+existing historical data doesn't already provide. The metric values the new
+threshold will evaluate are the same data the old threshold has been
+evaluating, run after run. Verify deterministically:
 
 1. Query the relevant metric aggregate across the last N completed runs
    using the multi-run endpoint (k6-manage references/metrics.md §8) -- use
@@ -131,10 +134,12 @@ evaluates the same historical metric data the old one did. Verify deterministica
 
 4. If the proposed value is close to the observed peak, soft-warn:
    "headroom is X% over observed peak -- accept that a future run with
-   normal variance might fail." Make it visible; don't gate on acknowledgement.
+   normal variance might fail." Don't gate on user acknowledgement, just
+   make it visible.
 
-The prediction table uses the entire historical distribution -- more informative
-than one fresh sample.
+This is more informative than running once: a fresh run is just one more
+sample on top of the existing N. The prediction table uses the entire
+historical distribution.
 
 ### Class B short tests: full cloud run
 
@@ -146,20 +151,24 @@ distribution.
 
 ### Class B long tests: local + cloud smoke
 
-`POST /start` runs the saved test as-defined for its full duration (no runtime
-overrides), so verify with two smoke layers before the PUT:
+The `POST /start` endpoint accepts no runtime overrides -- running the
+saved test always runs it as-defined, for its full duration. Two layers of
+verification avoid burning the full test:
 
-1. **Local 1-iteration smoke** -- catches broken selectors, import errors, and
-   runtime exceptions for free. Needs chromium for browser tests; skip if absent
-   (the cloud smoke catches the same). Doesn't cover cloud-specific behaviour
-   (load zones, distributed VUs, cloud env vars, IP allowlists).
+1. **Local 1-iteration smoke** -- catches obvious bugs (broken selectors,
+   import errors, runtime exceptions) for free:
 
    ```bash
    k6 run --vus 1 --iterations 1 script.js
    ```
 
-2. **`k6 cloud run` on a local copy** -- validates cloud-side execution without
-   the full duration:
+   For browser tests, requires chromium locally. Skip this layer if
+   chromium isn't installed; the cloud smoke below catches the same
+   errors. Doesn't validate cloud-specific behaviour (load zones,
+   distributed VUs, k6 cloud env vars, IP allowlists).
+
+2. **`k6 cloud run` with CLI overrides on a local copy** -- validates
+   cloud-side execution without the full duration:
 
    ```bash
    # Authenticate first (k6-manage §9)
@@ -167,17 +176,20 @@ overrides), so verify with two smoke layers before the PUT:
    STACK=$(gcx --context <ctx> config view --minify -o json | jq -r '.contexts[].grafana.server')
    k6 cloud login --token "$TOKEN" --stack "$STACK"
 
-   # Local copy with overrides -- doesn't touch the saved test
+   # Run a local copy with overrides -- doesn't touch the saved test
    k6 cloud run --vus 1 --iterations 1 script.js
    ```
 
-   If VUs/iterations live in `scenarios.*` (CLI overrides don't apply), add a
-   temporary `smoke` scenario (vus=1/iterations=1) to a local copy, run with
-   `--scenario smoke`, and PUT the unmodified original after it passes.
+   For scripts where VUs/iterations live inside `scenarios.*` (CLI
+   overrides don't apply to scenario-based configs), add a temporary
+   `smoke` scenario at vus=1/iterations=1 to a local copy and run with
+   `--scenario smoke`. PUT the unmodified original (without the smoke
+   scenario) to the saved test after the smoke passes.
 
-PUT to the saved test only after both smokes pass. The next scheduled run is the
-final confidence check -- don't gate on it; the cloud smoke already validated the
-new bytes cloud-side.
+Only after both smoke layers pass do the PUT to the saved test. The next
+scheduled run is the final long-term confidence check, but don't gate on
+it -- the cloud smoke already validated cloud-side execution of the new
+bytes.
 
 ### Edge cases
 
@@ -197,9 +209,15 @@ new bytes cloud-side.
 ## Mandatory documentation lookup
 
 Before proposing any change that touches k6 APIs, imports, or patterns, confirm
-it against current docs and **cite the source** in your report -- this grounds
-recommendations in the real API, not stale model knowledge. Use the lookup
-tiers and concrete commands in [Documentation lookup](#documentation-lookup) below.
+it against current documentation. Look up the relevant API or migration guide
+using:
+
+1. mcp-k6 `get_documentation` (if available)
+2. `k6 x docs <path>` (always available)
+3. Web fetch as last resort
+
+Cite the documentation source in your report for every change. This ensures
+recommendations are grounded in the actual k6 API, not stale model knowledge.
 
 ## Async check pattern
 
@@ -267,9 +285,11 @@ After confirmation:
 2. Validate: `k6 inspect` (parse check) or `validate_script` (mcp-k6)
 3. For cloud-hosted scripts, follow k6-manage Section 5 safe-edit recipe
    (backup → PUT → sha256-verify)
-4. **Verify per "Mandatory post-edit verification" above** -- Class A
-   (historical pass/fail prediction). For loosening, the table also shows which
-   past failing runs the change would "hide" -- surface before the PUT.
+4. **Verify per "Mandatory post-edit verification" above.** Threshold
+   changes are Class A -- use the historical pass/fail prediction recipe.
+   For loosening, the prediction table also surfaces which past failing
+   runs are being "hidden" by the change, which the user should see
+   before the PUT.
 5. Confirm the change was applied.
 
 ---
@@ -318,10 +338,12 @@ Wait for user confirmation before applying each one.
 
 After all changes are applied:
 1. Run `k6 inspect` or `validate_script` to confirm the script parses
-2. **Verify per "Mandatory post-edit verification" above** -- Class B
-   (imports/APIs changed); pick short-vs-long by test duration. Don't skip the
-   cloud smoke on long tests -- migration bugs hide in cloud-only behaviour
-   (load-zone connectivity, env-var resolution).
+2. **Verify per "Mandatory post-edit verification" above.** Migration
+   edits are Class B by definition (imports and APIs changed), so choose
+   the short-vs-long-test path based on the saved test's expected
+   duration. Don't skip the cloud smoke for long tests just because the
+   change "looks like a rename" -- migration bugs often hide in
+   cloud-only behaviour (load-zone connectivity, env-var resolution).
 3. Present the verification result.
 
 ---
