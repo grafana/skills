@@ -146,24 +146,20 @@ distribution.
 
 ### Class B long tests: local + cloud smoke
 
-The `POST /start` endpoint accepts no runtime overrides -- running the
-saved test always runs it as-defined, for its full duration. Two layers of
-verification avoid burning the full test:
+`POST /start` runs the saved test as-defined for its full duration (no runtime
+overrides), so verify with two smoke layers before the PUT:
 
-1. **Local 1-iteration smoke** -- catches obvious bugs (broken selectors,
-   import errors, runtime exceptions) for free:
+1. **Local 1-iteration smoke** -- catches broken selectors, import errors, and
+   runtime exceptions for free. Needs chromium for browser tests; skip if absent
+   (the cloud smoke catches the same). Doesn't cover cloud-specific behaviour
+   (load zones, distributed VUs, cloud env vars, IP allowlists).
 
    ```bash
    k6 run --vus 1 --iterations 1 script.js
    ```
 
-   For browser tests, requires chromium locally. Skip this layer if
-   chromium isn't installed; the cloud smoke below catches the same
-   errors. Doesn't validate cloud-specific behaviour (load zones,
-   distributed VUs, k6 cloud env vars, IP allowlists).
-
-2. **`k6 cloud run` with CLI overrides on a local copy** -- validates
-   cloud-side execution without the full duration:
+2. **`k6 cloud run` on a local copy** -- validates cloud-side execution without
+   the full duration:
 
    ```bash
    # Authenticate first (k6-manage §9)
@@ -171,20 +167,17 @@ verification avoid burning the full test:
    STACK=$(gcx --context <ctx> config view --minify -o json | jq -r '.contexts[].grafana.server')
    k6 cloud login --token "$TOKEN" --stack "$STACK"
 
-   # Run a local copy with overrides -- doesn't touch the saved test
+   # Local copy with overrides -- doesn't touch the saved test
    k6 cloud run --vus 1 --iterations 1 script.js
    ```
 
-   For scripts where VUs/iterations live inside `scenarios.*` (CLI
-   overrides don't apply to scenario-based configs), add a temporary
-   `smoke` scenario at vus=1/iterations=1 to a local copy and run with
-   `--scenario smoke`. PUT the unmodified original (without the smoke
-   scenario) to the saved test after the smoke passes.
+   If VUs/iterations live in `scenarios.*` (CLI overrides don't apply), add a
+   temporary `smoke` scenario (vus=1/iterations=1) to a local copy, run with
+   `--scenario smoke`, and PUT the unmodified original after it passes.
 
-Only after both smoke layers pass do the PUT to the saved test. The next
-scheduled run is the final long-term confidence check, but don't gate on
-it -- the cloud smoke already validated cloud-side execution of the new
-bytes.
+PUT to the saved test only after both smokes pass. The next scheduled run is the
+final confidence check -- don't gate on it; the cloud smoke already validated the
+new bytes cloud-side.
 
 ### Edge cases
 
