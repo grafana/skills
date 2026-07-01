@@ -125,6 +125,12 @@
           "description": "Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook. Use when load-testing, stress-testing, or performance-testing a website with k6.",
           "path": "skills/grafana-k6/k6-perf-test-website",
           "tags": ["k6", "load-testing", "performance", "browser", "slo", "grafana-cloud"]
+        },
+        {
+          "name": "k6-test-maintenance",
+          "description": "Maintain and improve existing k6 test scripts. Covers threshold tightening based on trend data, version migration between k6 releases, auto-fixing tests when the underlying service changes, refactoring for cleanliness, and auditing scripts against current best practices from docs. Use when the user asks to fix a failing k6 test, tighten thresholds, migrate a script to a new k6 version, refactor a test, update a script after a service change, or improve a script with best practices. Trigger on phrases like \"fix my k6 test\", \"tighten my thresholds\", \"migrate to k6 v2\", \"update my test script\", \"refactor this k6 test\", \"my test is failing after a deploy\", \"apply best practices to my script\", \"modernize my k6 test\", or \"the service changed and my test broke\". Also trigger when another skill (k6-trend-analysis or k6-cloud-investigate-test) hands off with a recommendation to edit a script.",
+          "path": "skills/grafana-k6/k6-test-maintenance",
+          "tags": ["k6", "load-testing", "test-maintenance", "thresholds", "migration", "refactoring"]
         }
       ]
     }
