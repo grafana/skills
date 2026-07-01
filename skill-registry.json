@@ -125,6 +125,12 @@
           "description": "Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook. Use when load-testing, stress-testing, or performance-testing a website with k6.",
           "path": "skills/grafana-k6/k6-perf-test-website",
           "tags": ["k6", "load-testing", "performance", "browser", "slo", "grafana-cloud"]
+        },
+        {
+          "name": "k6-trend-analysis",
+          "description": "Analyze Grafana Cloud k6 test run trends over time. Detects slow metric drift (e.g., P95 latency creeping up while still passing thresholds), computes headroom to thresholds, flags anomalies, and recommends threshold tightening. Use when the user asks about test performance trends, wants to know if metrics are degrading, asks whether thresholds should be tightened, or wants a health check across recent runs for a specific test. Trigger on phrases like \"how is my test trending\", \"is P95 getting worse\", \"check for performance regression\", \"should I tighten thresholds\", \"are my tests degrading\", \"show me trends for test X\", \"analyze my k6 test runs\", or \"is my test getting slower\". Also trigger when a user asks to check all tests in a project -- run this skill once per test and synthesize.",
+          "path": "skills/grafana-k6/k6-trend-analysis",
+          "tags": ["k6", "load-testing", "grafana-cloud", "trends", "regression", "thresholds", "metrics"]
         }
       ]
     }
