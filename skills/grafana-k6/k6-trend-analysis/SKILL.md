@@ -16,12 +16,10 @@ description: >
 
 # k6 Trend Analysis
 
-Analyze metric trends across multiple runs of a Grafana Cloud k6 test to detect
-degradation early -- before thresholds are breached and alerts fire.
-
-The core value: a P95 at 380ms against a 500ms threshold is "green" today, but
-if it was 250ms a month ago, something is quietly degrading. This skill surfaces
-that drift and recommends action.
+Analyze metric trends across multiple runs of a Grafana Cloud k6 test to catch
+degradation early -- before thresholds breach and alerts fire. A P95 at 380ms
+against a 500ms threshold is "green" today, but if it was 250ms a month ago,
+something is quietly degrading; this skill surfaces that drift and recommends action.
 
 ## What this skill does NOT do
 
@@ -114,6 +112,13 @@ GET /cloud/v5/load_tests/{loadTestId}/query_aggregate_k6(
   metric='<metric_name>',
   test_run_ids=[{id1},{id2},...]
 )
+```
+
+Concrete `gcx` form (proxy prefix per k6-manage §2; `-o json` avoids the spill envelope):
+
+```bash
+LT=<load_test_id>; IDS="123,124,125"
+gcx --context <ctx> api "/api/plugins/k6-app/resources/cloud/cloud/v5/load_tests/$LT/query_aggregate_k6(query='histogram_quantile(0.95)',metric='http_req_duration',test_run_ids=[$IDS])" -o json
 ```
 
 Choose the aggregate method based on metric type:
@@ -435,5 +440,4 @@ When recommending threshold changes, follow these principles:
 | **Metric type changes across runs** | If a metric's type changed between runs (e.g., script refactor), the multi-run aggregate endpoint uses the latest type. Earlier runs queried with the wrong method return empty. Flag this if detected. |
 | **Incomplete runs skew trends** | Aborted or timed-out runs typically have shorter durations and fewer iterations, producing unrepresentative metric values. Exclude them by default. |
 | **LG resource metrics** | `load_generator_cpu_percent` and `load_generator_file_handles` trending up may indicate the test is outgrowing its load generator allocation, not that the service is degrading. Call this out separately. |
-| **Script changes mid-window** | If the script changed during the analysis window, trends may reflect script differences rather than service changes. Recommend diffing the run-bundled scripts (k6-manage Section 5) at inflection points. |
 | **Rate metric direction** | For `ratio`-type rate metrics (like check pass rates), "degrading" means the value is *decreasing* (fewer passes), which is the opposite direction from latency metrics. |
