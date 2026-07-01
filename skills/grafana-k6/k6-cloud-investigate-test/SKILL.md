@@ -7,7 +7,14 @@ description: Investigate a Grafana Cloud k6 test — describe the script, list r
 
 Structured 9-step workflow for investigating a Grafana Cloud k6 test or run.
 
-**Workflow-only.** All API calls go through `gcx api` (v6 for REST, v5 for metrics); the underlying mechanics (auth, path conventions, endpoint discovery, log queries, script editing, threshold semantics, gotchas) live in the `k6-manage` skill, which every step references.
+This skill is **workflow-only**. All API calls go through `gcx api` against the plugin proxy, using v6 for REST and v5 for metrics. For the underlying mechanics (gcx auth, path conventions, endpoint discovery, log queries, script editing, threshold semantics, gotchas), see the `k6-manage` skill — every step below references it.
+
+The content unique to this skill is:
+
+- the ordered investigation flow (Steps 1-9 below)
+- the date-alignment check ("last 7 days" ≠ "last 7 runs")
+- the 3-layer pass/fail determination (`result` vs `status` vs per-check `checks` query)
+- a worked example with realistic numbers (`references/worked-example.md`)
 
 ## Core principles
 
