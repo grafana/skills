@@ -35,9 +35,11 @@ curl -X POST https://<stack>.grafana.net/api/plugins/grafana-ml-app/resources/ml
     "algorithm": { "name": "prophet", "config": {} }
   }'
 
-# 2. Verify job is producing the predicted-value metric (may take a few minutes)
+# 2. Verify job is producing the predicted-value metric (may take a few minutes).
+#    <datasourceId> must match the datasourceId used above (find it via
+#    GET /api/datasources), or run the query from Explore instead.
 curl -s -H "Authorization: Bearer <token>" \
-  'https://<stack>.grafana.net/api/datasources/proxy/1/api/v1/query?query=ml_forecast_upper{job="cpu-forecast"}' \
+  'https://<stack>.grafana.net/api/datasources/proxy/<datasourceId>/api/v1/query?query=ml_forecast_upper{job="cpu-forecast"}' \
   | jq '.data.result | length'
 # Expect > 0
 
@@ -60,9 +62,10 @@ curl -X POST https://<stack>.grafana.net/api/plugins/grafana-ml-app/resources/ml
     "algorithm": { "name": "dbscan", "sensitivity": 0.5, "config": { "epsilon": 0.5 } }
   }'
 
-# 2. Verify the score metric exists
+# 2. Verify the score metric exists (<datasourceId> must match the
+#    datasourceId used above, or run the query from Explore instead)
 curl -s -H "Authorization: Bearer <token>" \
-  'https://<stack>.grafana.net/api/datasources/proxy/1/api/v1/query?query=ml_outlier_score{job="service-error-outliers"}' \
+  'https://<stack>.grafana.net/api/datasources/proxy/<datasourceId>/api/v1/query?query=ml_outlier_score{job="service-error-outliers"}' \
   | jq '.data.result | length'
 
 # 3. Alert when ml_outlier_score{job="service-error-outliers"} > 0.8 for 5m
