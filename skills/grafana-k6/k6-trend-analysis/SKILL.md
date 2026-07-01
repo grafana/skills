@@ -21,22 +21,17 @@ degradation early -- before thresholds breach and alerts fire. A P95 at 380ms
 against a 500ms threshold is "green" today, but if it was 250ms a month ago,
 something is quietly degrading; this skill surfaces that drift and recommends action.
 
-## What this skill does NOT do
+## Scope & dependencies
 
-- **Deep-dive into a single run's failure**: load `k6-cloud-investigate-test`
-- **Edit scripts or apply threshold changes**: load `k6-test-maintenance`
-- **Create new test scripts**: use the appropriate test creation workflow
-- **Query service-side metrics directly**: this skill hands off to
-  `debug-with-grafana` when observability correlation is needed
+Detection and recommendations only -- hand off:
+- single-run failure deep-dive -> `k6-cloud-investigate-test`
+- script / threshold edits -> `k6-test-maintenance`
+- new test creation -> the test-creation workflow
+- service-side metric queries -> `debug-with-grafana`
 
-## Dependencies
-
-This skill delegates all GCk6 API mechanics to **`k6-manage`**. Read it before
-executing any API call -- it covers auth, path construction (the doubled
-`cloud/cloud/` prefix), pagination with `@nextLink`, the spill envelope, and
-metric query syntax. Do not duplicate that knowledge here.
-
-Tools used: **`gcx`** (via k6-manage patterns).
+All GCk6 API mechanics (auth, the doubled `cloud/cloud/` path prefix, `@nextLink`
+pagination, the spill envelope, metric query syntax) are delegated to **`k6-manage`**,
+driven via **`gcx`** -- read it before any API call; don't duplicate it here.
 
 ---
 
@@ -391,20 +386,15 @@ Derive the overall health from the worst-case metric:
 
 ## Threshold recommendations
 
-When recommending threshold changes, follow these principles:
-
-- **Only tighten, never loosen** unless the user asks. Loosening thresholds
-  masks problems.
-- **Target 10-20% headroom** above the recent P95 of the metric. Enough room
-  for normal variance but tight enough to catch real degradation.
-- **Use the second-half mean as the baseline**, not the single most recent run
-  (which could be an outlier).
-- **Respect the user's intent**: if thresholds are currently very loose
-  (>100% headroom), they may be intentionally permissive. Mention the
-  opportunity to tighten but don't push hard -- the user knows their context.
-- **Consider grouped thresholds**: if the test uses tag-based thresholds
-  (e.g., `http_req_duration{name:homepage}`), recommend per-endpoint
-  thresholds where the trends differ between endpoints.
+- **Only tighten, never loosen** (unless asked) -- loosening masks problems.
+- **Target 10-20% headroom** above the recent P95 -- room for variance, tight
+  enough to catch real degradation.
+- **Baseline on the second-half mean**, not the latest run (could be an outlier).
+- **Respect intent**: very loose thresholds (>100% headroom) may be deliberate --
+  mention the opportunity, don't push.
+- **Grouped thresholds**: for tag-based thresholds
+  (`http_req_duration{name:homepage}`), recommend per-endpoint values where
+  trends differ.
 
 ---
 
