@@ -145,7 +145,7 @@ After restart, verify via `GET /api/plugins/<plugin-id>/health`.
 
 - [`references/dashboard-json.md`](references/dashboard-json.md) — full dashboard JSON model + template variables + common problems (uid uniqueness, gridPos arithmetic, datasource uid matching)
 - [`references/dashboards.md`](references/dashboards.md) — dashboard workflows, settings, variables, annotations, sharing, versions, playlists, and provisioning-as-code
-- [`references/datasources.md`](references/datasources.md) — data-source setup and query examples for Prometheus, Loki, Tempo, SQL, CloudWatch, and plugins
+- [`references/datasources.md`](references/datasources.md) — data source setup and query examples for Prometheus, Loki, Tempo, SQL, CloudWatch, and plugins
 - [`references/panel-types.md`](references/panel-types.md) — panel-type table + decision guide for picking the right one
 - [`references/panels.md`](references/panels.md) — panel editor, visualization options, field config, transformations, query options, inspection, and performance tips
 - [`references/alerting.md`](references/alerting.md) — alerting concepts, contact points, notification policies, templates, silences, and common rule examples
