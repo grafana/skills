@@ -13,7 +13,8 @@ Aggregation rules that pre-shrink high-cardinality metrics before storage — di
 ## Prerequisites
 
 - Grafana Cloud Metrics plan (any paid tier)
-- API key with `metrics:write` (for the Adaptive Metrics API)
+- API key with `metrics:write` (for the Adaptive Metrics API — `adaptive-metrics.grafana.net`, Bearer auth)
+- For the verification queries: the metrics query endpoint (`prometheus-prod-XX.grafana.net`) uses HTTP basic auth — `<metrics_user>` (numeric stack/instance ID) plus a token with `metrics:read` — not the Bearer key
 - Access to **Home → Adaptive Metrics** in the Cloud portal
 
 ## Common Workflows
@@ -27,7 +28,8 @@ curl -s -H "Authorization: Bearer <KEY>" \
   | jq '.recommendations[] | {metric_name, current_series, projected_series, estimated_reduction_percent}'
 
 # 2. Capture the baseline series count for the target metric
-curl -s -H "Authorization: Bearer <KEY>" \
+#    (metrics query endpoint = basic auth, not the Bearer key)
+curl -s -u "<metrics_user>:<metrics_token>" \
   "https://prometheus-prod-XX.grafana.net/api/prom/api/v1/query?query=count({__name__=\"process_cpu_seconds_total\"})" \
   | jq '.data.result[0].value[1]'   # → e.g. "12480"
 
@@ -84,8 +86,8 @@ grep -r '<METRIC_NAME>' dashboards/ alerts/ recording-rules/
 #    Reload Alloy: curl -X POST http://localhost:12345/-/reload
 
 # 4. Verify — the metric should no longer appear in series counts after ~10 min
-curl -s 'https://prometheus-prod-XX.grafana.net/api/prom/api/v1/label/__name__/values' \
-  -H "Authorization: Bearer <KEY>" | jq '.data | index("<METRIC_NAME>")'  # → null
+curl -s -u "<metrics_user>:<metrics_token>" \
+  'https://prometheus-prod-XX.grafana.net/api/prom/api/v1/label/__name__/values' | jq '.data | index("<METRIC_NAME>")'  # → null
 ```
 
 ## Measure the impact

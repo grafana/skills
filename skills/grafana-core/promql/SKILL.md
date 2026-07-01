@@ -22,6 +22,10 @@ PromQL returns either an **instant vector**, a **range vector**, or a **scalar**
 ### 1. Write + validate a query
 
 ```bash
+# 0. Point at your Prometheus/Mimir. For Grafana Cloud, use the metrics endpoint
+#    and add basic auth (-u "<metrics_user>:<token>") to each curl below.
+PROM=http://localhost:9090   # or https://prometheus-prod-XX.grafana.net/api/prom
+
 # 1. Sketch the query — for "5xx error rate per service":
 EXPR='sum(rate(http_requests_total{status_code=~"5.."}[5m])) by (service)'
 
