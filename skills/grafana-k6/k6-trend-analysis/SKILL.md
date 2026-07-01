@@ -288,61 +288,37 @@ rate of degradation, this metric could breach in approximately N weeks."
 
 ### Step 9: Service-side correlation (when warranted)
 
-If Step 7 reveals degrading metrics, offer to correlate with service-side
-observability data. This helps distinguish:
-- **Service degradation**: the service itself is getting slower (action: fix
-  the service, not the test)
-- **Test environment changes**: load zone latency, LG resource exhaustion
-- **Test script changes**: a script edit introduced slower patterns
+If Step 7 reveals degradation, offer (don't auto-run) to correlate with
+service-side data to separate **service degradation** (fix the service),
+**test-environment changes** (load-zone latency, LG exhaustion), and
+**script changes** (a slower edit). Present findings and ask first.
 
-To correlate, hand off to `debug-with-grafana` using `gcx` to query the
-service's Prometheus metrics and Loki logs for the same time window. Look for:
-- Error rate changes in the service
-- Latency increases in upstream dependencies
-- Resource pressure (CPU, memory, connection pools)
-- Deployment events that coincide with metric inflection points
+Hand off to `debug-with-grafana` (via `gcx`) to query the service's Prometheus
+metrics and Loki logs for the same window; look for service error-rate changes,
+upstream latency, resource pressure (CPU/memory/pools), and deploys coinciding
+with inflection points.
 
-Do not attempt this correlation automatically -- present the degradation
-findings first and ask the user if they want to investigate the service side.
+**When the service has no observability** (third-party or another team's
+service -- no Prometheus job, Loki stream, or probe), fall back to client-side
+signal, which still localises the regression:
 
-**When the service has no observability** (no Prometheus job, no Loki
-stream, no synthetic probe -- common when the test targets a third-party
-service or a service owned by a different team), server-side correlation
-isn't possible. Fall back to finer-grained client-side analysis. The k6
-test itself produces enough signal to localise the regression in many
-cases:
+- **Browser tests:** compare Tempo iteration traces (k6-manage §7,
+  `/api/v1/tempo/api/search` + `/traces/{id}`) for a before/after run. The
+  span-name rollup, slowest spans, and per-URL navigation durations pin the
+  regression to a URL, locator action, or asset; web vitals are `web_vital.*`
+  span attributes -- read them directly.
+- **Protocol tests:** compare `http_req_duration by (name, status)` and
+  `http_req_failed by (name, status)`; a regression on one named request
+  points at that endpoint. Split `http_req_waiting` (server time) vs
+  `http_req_receiving` (transfer) to separate slow processing from slow download.
+- **Payload corroboration** (both): query `data_received` /
+  `browser_data_received`. Latency up + payload up -> server content changes;
+  latency up + payload stable -> server processing changes; intermittent
+  payload -> flaky cache or A/B test.
 
-- **Browser tests -- compare Tempo traces across the inflection.** Pull
-  the iteration trace for one passing run and one failing run via
-  k6-manage §7 (`/api/v1/tempo/api/search` + `/traces/{id}`). The span-name
-  rollup, slowest-spans list, and per-URL navigation durations localise
-  the regression to a specific URL, locator action, or asset request.
-  Comparing the median iteration of a "before" run vs an "after" run
-  often pins the cause to a single navigation or operation. Web vital
-  values are embedded as `web_vital.*` span attributes -- read them
-  directly rather than re-querying.
-
-- **Protocol tests -- compare tagged HTTP metrics across the inflection.**
-  Query `http_req_duration by (name, status)` and
-  `http_req_failed by (name, status)` across the runs. A regression
-  confined to one named request points at a specific endpoint. Then split
-  `http_req_waiting` (server response time) vs `http_req_receiving`
-  (download time) to distinguish slow processing from slow transfer.
-
-- **Payload-size corroboration** (both test types). Query `data_received`
-  or `browser_data_received` per run. If page weight grew alongside the
-  latency regression, the cause is likely server-side content changes
-  (more resources, larger payloads, new tracking scripts). If payload is
-  stable but latency rose, the cause is likely server-side processing
-  changes (slower DB queries, cache misses, new dependencies).
-  Intermittently-large payloads (some days big, some days small) suggest
-  a flaky cache or A/B test rather than a uniform deploy.
-
-When server-side correlation IS available, prefer it -- it answers "why"
-directly. The fallbacks answer "where" and "what kind of change" -- still
-highly actionable when the service is owned by another team or not
-instrumented, and a good handoff packet when you do file a ticket against
-the service team.
+Prefer server-side correlation when available -- it answers "why" directly; the
+fallbacks answer "where" and "what kind of change", and make a good ticket for
+the owning team.
 
 ### Step 10: Present the report
 
