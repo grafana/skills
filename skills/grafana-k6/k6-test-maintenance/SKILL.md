@@ -77,11 +77,10 @@ present an unvalidated script to the user.
 
 ## Mandatory post-edit verification
 
-After applying a change to a cloud-hosted script, verify the change took
-effect correctly. The depth of verification needed depends on the **change
-class**, not on the test's duration. Most edits don't need a full test run,
-and customers' production tests may run for hours -- so a one-size-fits-all
-"run the test after editing" rule doesn't work.
+After editing a cloud-hosted script, verify it took effect. Verification depth
+depends on the **change class**, not test duration -- most edits don't need a
+full run, and production tests may run for hours, so "just run it after editing"
+doesn't work.
 
 ### Change classification
 
@@ -110,10 +109,8 @@ is deliberately narrow.
 
 ### Class A: historical pass/fail prediction
 
-For threshold-only changes, a fresh cloud run adds no information that the
-existing historical data doesn't already provide. The metric values the new
-threshold will evaluate are the same data the old threshold has been
-evaluating, run after run. Verify deterministically:
+For threshold-only changes, a fresh run adds no information -- the new threshold
+evaluates the same historical metric data the old one did. Verify deterministically:
 
 1. Query the relevant metric aggregate across the last N completed runs
    using the multi-run endpoint (k6-manage references/metrics.md §8) -- use
@@ -134,12 +131,10 @@ evaluating, run after run. Verify deterministically:
 
 4. If the proposed value is close to the observed peak, soft-warn:
    "headroom is X% over observed peak -- accept that a future run with
-   normal variance might fail." Don't gate on user acknowledgement, just
-   make it visible.
+   normal variance might fail." Make it visible; don't gate on acknowledgement.
 
-This is more informative than running once: a fresh run is just one more
-sample on top of the existing N. The prediction table uses the entire
-historical distribution.
+The prediction table uses the entire historical distribution -- more informative
+than one fresh sample.
 
 ### Class B short tests: full cloud run
 
@@ -209,15 +204,9 @@ bytes.
 ## Mandatory documentation lookup
 
 Before proposing any change that touches k6 APIs, imports, or patterns, confirm
-it against current documentation. Look up the relevant API or migration guide
-using:
-
-1. mcp-k6 `get_documentation` (if available)
-2. `k6 x docs <path>` (always available)
-3. Web fetch as last resort
-
-Cite the documentation source in your report for every change. This ensures
-recommendations are grounded in the actual k6 API, not stale model knowledge.
+it against current docs and **cite the source** in your report -- this grounds
+recommendations in the real API, not stale model knowledge. Use the lookup
+tiers and concrete commands in [Documentation lookup](#documentation-lookup) below.
 
 ## Async check pattern
 
