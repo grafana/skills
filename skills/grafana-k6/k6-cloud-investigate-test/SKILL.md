@@ -1,7 +1,6 @@
 ---
 name: k6-cloud-investigate-test
 description: Investigate a Grafana Cloud k6 test — describe the script, list run history, identify pass/fail status, pull raw metric time-series and log lines for one or more runs, and (if asked) safely edit the test script. Use when the user asks about a specific k6 cloud test or run, gives a `/a/k6-app/tests/<id>` or `/a/k6-app/runs/<id>` URL, asks "is this test passing", "why are my k6 tests failing", "show me metrics for run X", "show me logs for run X", or wants to add thresholds / fix a failing test. Trigger this skill even when the user doesn't explicitly say "investigate" — pasted `/a/k6-app/...` URLs, "why did run X fail", "what happened with my test", "is my test healthy", "the latest run looks weird", "checks are failing but the run says passed", or any request to diagnose a Grafana Cloud k6 run all qualify.
-allowed-tools: [gcx, Bash, Read, Edit, Write]
 ---
 
 # k6 Cloud test investigator
