@@ -125,6 +125,12 @@
           "description": "Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook. Use when load-testing, stress-testing, or performance-testing a website with k6.",
           "path": "skills/grafana-k6/k6-perf-test-website",
           "tags": ["k6", "load-testing", "performance", "browser", "slo", "grafana-cloud"]
+        },
+        {
+          "name": "k6-manage",
+          "description": "Operate Grafana Cloud k6 (GCk6) through the gcx CLI (or direct curl when gcx is unavailable): manage load tests, test runs, scripts, projects, schedules, and env vars; fetch logs, metrics, traces, screenshots, and Cloud Insights; and run scripts locally. Use when listing, creating, or aborting k6 cloud tests, fetching logs or metrics for a run, editing a k6 script, managing project limits or schedules, or calling the /cloud/v6, /cloud/v5, or k6-app Loki endpoints against a Grafana Cloud stack.",
+          "path": "skills/grafana-k6/k6-manage",
+          "tags": ["k6", "load-testing", "grafana-cloud", "gcx", "test-runs", "metrics", "logs"]
         }
       ]
     }
