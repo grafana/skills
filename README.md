@@ -141,6 +141,7 @@ Skills for working with k6 open-source load testing.
 | [k6](skills/grafana-k6/k6) | k6 performance and load testing — test scripts, executors, thresholds, scenarios, and k6 Cloud execution |
 | [k6-docs](skills/grafana-k6/k6-docs) | Write or review k6 documentation across TypeScript types, user docs, and release notes |
 | [k6-perf-test-website](skills/grafana-k6/k6-perf-test-website) | Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook |
+| [k6-trend-analysis](skills/grafana-k6/k6-trend-analysis) | Analyze Grafana Cloud k6 test-run trends over time — detect metric drift, compute threshold headroom, and recommend when to tighten thresholds |
 
 ---
 
