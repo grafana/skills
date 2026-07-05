@@ -1,0 +1,26 @@
+name: Lint Skills
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Make lint script executable
+        run: chmod +x scripts/lint-skills.sh
+
+      - name: Lint skills
+        run: |
+          SKILL_COUNT=$(find skills -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$SKILL_COUNT" -eq 0 ]; then
+            echo "No SKILL.md files found — nothing to lint"
+            exit 0
+          fi
+          ./scripts/lint-skills.sh skills

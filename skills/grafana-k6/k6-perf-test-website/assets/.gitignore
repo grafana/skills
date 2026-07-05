@@ -1,0 +1,11 @@
+node_modules/
+*.log
+.DS_Store
+
+# Temp files left by the README's `sed -i.bak` add-a-workflow step.
+*.bak
+
+# Note: k6 run logs + LG-monitor CSVs are written to absolute temp dirs
+# (/tmp/perf-lg-monitor/ and $TMPDIR/k6-run-all/), not inside the repo, so there
+# is nothing to ignore for them here. Recorded HARs under recordings/har/ are
+# committed intentionally (see recordings/README.md) and must NOT be ignored.

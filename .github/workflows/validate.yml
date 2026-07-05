@@ -1,0 +1,113 @@
+name: Validate Marketplace
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Validate JSON syntax
+        run: |
+          echo "Validating Claude Code marketplace.json..."
+          jq empty .claude-plugin/marketplace.json
+
+          echo "Validating Cursor marketplace.json..."
+          jq empty .cursor-plugin/marketplace.json
+
+          echo "Validating Codex marketplace.json..."
+          jq empty .agents-plugin/marketplace.json
+
+      - name: Validate marketplace structure
+        run: |
+          echo "Checking required marketplace fields..."
+
+          jq -e '.name' .claude-plugin/marketplace.json > /dev/null || { echo "ERROR: Missing 'name' field"; exit 1; }
+          jq -e '.owner.name' .claude-plugin/marketplace.json > /dev/null || { echo "ERROR: Missing 'owner.name' field"; exit 1; }
+          jq -e '.plugins' .claude-plugin/marketplace.json > /dev/null || { echo "ERROR: Missing 'plugins' array"; exit 1; }
+
+          echo "Marketplace structure is valid"
+
+      - name: Validate SKILL.md files
+        run: |
+          echo "Validating SKILL.md files..."
+
+          SKILL_FILES=$(find skills -name "SKILL.md" -type f 2>/dev/null || true)
+
+          if [ -z "$SKILL_FILES" ]; then
+            echo "No SKILL.md files found yet — skipping skill validation"
+            exit 0
+          fi
+
+          for skill in $SKILL_FILES; do
+            echo "Checking $skill"
+
+            if ! head -1 "$skill" | grep -q "^---$"; then
+              echo "ERROR: $skill missing YAML frontmatter"
+              exit 1
+            fi
+
+            if ! grep -q "^name:" "$skill"; then
+              echo "ERROR: $skill missing 'name' field in frontmatter"
+              exit 1
+            fi
+
+            if ! grep -q "^description:" "$skill"; then
+              echo "ERROR: $skill missing 'description' field in frontmatter"
+              exit 1
+            fi
+
+            echo "  ✓ Valid frontmatter"
+          done
+
+          echo "All SKILL.md files are valid"
+
+      - name: Validate multi-format consistency
+        run: |
+          echo "Checking version consistency across all marketplace formats..."
+
+          CLAUDE_VER=$(jq -r '.metadata.version' .claude-plugin/marketplace.json)
+          CURSOR_VER=$(jq -r '.metadata.version' .cursor-plugin/marketplace.json)
+          AGENTS_VER=$(jq -r '.metadata.version' .agents-plugin/marketplace.json)
+
+          if [ "$CLAUDE_VER" != "$CURSOR_VER" ] || [ "$CLAUDE_VER" != "$AGENTS_VER" ]; then
+            echo "ERROR: Marketplace versions don't match (Claude: $CLAUDE_VER, Cursor: $CURSOR_VER, Codex: $AGENTS_VER)"
+            exit 1
+          fi
+
+          echo "✓ Marketplace versions match: $CLAUDE_VER"
+
+          # Check plugin-level version consistency
+          PLUGIN_COUNT=$(jq '.plugins | length' .claude-plugin/marketplace.json)
+          for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
+            PLUGIN_NAME=$(jq -r ".plugins[$i].name" .claude-plugin/marketplace.json)
+            CLAUDE_PLUGIN_VER=$(jq -r ".plugins[$i].version // \"\"" .claude-plugin/marketplace.json)
+            CURSOR_PLUGIN_VER=$(jq -r ".plugins[$i].version // \"\"" .cursor-plugin/marketplace.json)
+            AGENTS_PLUGIN_VER=$(jq -r ".plugins[$i].version // \"\"" .agents-plugin/marketplace.json)
+
+            if [ "$CLAUDE_PLUGIN_VER" != "$CURSOR_PLUGIN_VER" ] || [ "$CLAUDE_PLUGIN_VER" != "$AGENTS_PLUGIN_VER" ]; then
+              echo "ERROR: Plugin '$PLUGIN_NAME' versions don't match (Claude: $CLAUDE_PLUGIN_VER, Cursor: $CURSOR_PLUGIN_VER, Codex: $AGENTS_PLUGIN_VER)"
+              exit 1
+            fi
+
+            echo "✓ Plugin '$PLUGIN_NAME' versions match: $CLAUDE_PLUGIN_VER"
+          done
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "=== Validation Summary ==="
+          echo "Claude Code marketplace: .claude-plugin/marketplace.json"
+          echo "Cursor marketplace:      .cursor-plugin/marketplace.json"
+          echo "Codex marketplace:       .agents-plugin/marketplace.json"
+          echo "Plugins: $(jq '.plugins | length' .claude-plugin/marketplace.json)"
+          SKILL_COUNT=$(find skills -name 'SKILL.md' 2>/dev/null | wc -l | tr -d ' ')
+          echo "Skills:  $SKILL_COUNT"
+          echo ""
+          echo "✓ All validations passed"

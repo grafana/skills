@@ -1,0 +1,166 @@
+{
+  "name": "grafana-skills",
+  "owner": {
+    "name": "Grafana Labs",
+    "email": "opensource@grafana.com"
+  },
+  "metadata": {
+    "description": "Public skills for working with Grafana, Prometheus, Loki, Tempo, and the broader LGTM stack",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "grafana-core",
+      "source": "./",
+      "description": "Skills for core Grafana concepts — dashboards, panels, PromQL, visualization, alerting, Alloy, Beyla, and OpenTelemetry",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "grafana",
+        "dashboards",
+        "promql",
+        "panels",
+        "alloy",
+        "beyla",
+        "opentelemetry",
+        "alerting"
+      ],
+      "skills": [
+        "./skills/grafana-core/dashboarding",
+        "./skills/grafana-core/promql",
+        "./skills/grafana-core/grafana-oss",
+        "./skills/grafana-core/datasource-provisioning",
+        "./skills/grafana-core/alloy",
+        "./skills/grafana-core/beyla",
+        "./skills/grafana-core/opentelemetry",
+        "./skills/grafana-core/alerting-irm",
+        "./skills/grafana-core/skill-authoring"
+      ]
+    },
+    {
+      "name": "grafana-cloud",
+      "source": "./",
+      "description": "Skills for Grafana Cloud — fleet management, cloud integrations, adaptive metrics, AI/ML, infrastructure monitoring, database observability, private connectivity, cost management, and account administration",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "grafana-cloud",
+        "alloy",
+        "adaptive-metrics",
+        "mcp",
+        "infrastructure",
+        "kubernetes",
+        "synthetic-monitoring",
+        "database",
+        "privatelink",
+        "cost-management"
+      ],
+      "skills": [
+        "./skills/grafana-cloud/adaptive-metrics",
+        "./skills/grafana-cloud/assistant-mcp",
+        "./skills/grafana-cloud/cloud-integrations",
+        "./skills/grafana-cloud/fleet-management",
+        "./skills/grafana-cloud/send-data",
+        "./skills/grafana-cloud/admin",
+        "./skills/grafana-cloud/infrastructure",
+        "./skills/grafana-cloud/testing",
+        "./skills/grafana-cloud/ml-ai",
+        "./skills/grafana-cloud/app-observability",
+        "./skills/grafana-cloud/database-observability",
+        "./skills/grafana-cloud/private-connectivity",
+        "./skills/grafana-cloud/cost-management",
+        "./skills/grafana-cloud/oncall-irm",
+        "./skills/grafana-cloud/dpm-finder",
+        "./skills/grafana-cloud/loki-label-analyzer",
+        "./skills/grafana-cloud/prometheus-label-strategy",
+        "./skills/grafana-cloud/prometheus-cardinality-troubleshooter"
+      ]
+    },
+    {
+      "name": "grafana-lgtm",
+      "source": "./",
+      "description": "Skills for the LGTM open-source stack — Loki (logs), Grafana Tempo (traces), Grafana Mimir/Prometheus (metrics), and Grafana Pyroscope (profiles)",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "loki",
+        "tempo",
+        "prometheus",
+        "mimir",
+        "pyroscope",
+        "lgtm",
+        "tracing",
+        "logging",
+        "profiling"
+      ],
+      "skills": [
+        "./skills/grafana-lgtm/loki",
+        "./skills/grafana-lgtm/tempo",
+        "./skills/grafana-lgtm/prometheus",
+        "./skills/grafana-lgtm/pyroscope",
+        "./skills/grafana-lgtm/mimir"
+      ]
+    },
+    {
+      "name": "grafana-plugins",
+      "source": "./",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "grafana",
+        "plugins",
+        "bundle-size",
+        "webpack",
+        "code-splitting",
+        "scenes"
+      ],
+      "skills": [
+        "./skills/grafana-plugins/plugin-bundle-size",
+        "./skills/grafana-plugins/react-19-plugin-migration",
+        "./skills/grafana-plugins/grafana-scenes"
+      ]
+    },
+    {
+      "name": "grafana-app-sdk",
+      "source": "./",
+      "description": "Skills for building apps on the Grafana App Platform using grafana-app-sdk — CUE schemas, reconcilers, and admission control",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "grafana",
+        "app-sdk",
+        "app-platform",
+        "cue",
+        "kubernetes",
+        "reconciler",
+        "admission"
+      ],
+      "skills": [
+        "./skills/grafana-app-sdk/app-sdk-concepts",
+        "./skills/grafana-app-sdk/cue-kind-definition",
+        "./skills/grafana-app-sdk/reconciler-logic",
+        "./skills/grafana-app-sdk/admission-control"
+      ]
+    },
+    {
+      "name": "grafana-k6",
+      "source": "./",
+      "description": "Skills for working with k6 — open-source load testing and performance testing",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "k6",
+        "load-testing",
+        "performance",
+        "testing"
+      ],
+      "skills": [
+        "./skills/grafana-k6/k6-docs",
+        "./skills/grafana-k6/k6",
+        "./skills/grafana-k6/k6-perf-test-website",
+        "./skills/grafana-k6/k6-manage"
+      ]
+    }
+  ]
+}

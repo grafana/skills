@@ -1,0 +1,3 @@
+# Keeps the recordings/har/ directory in the scaffold. The Playwright recorders
+# write wN-<short-name>.har files here, which are committed on purpose (see
+# ../README.md). Safe to delete once at least one HAR is committed.
