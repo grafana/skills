@@ -19,7 +19,7 @@ Read-only audit of the workspace root. Do not modify any files.
 ## 0. Detect package manager
 
 ```bash
-test -f package.json || echo "STOP: no package.json at workspace root"
+test -f package.json || { echo "STOP: no package.json at workspace root"; exit 1; }
 jq -r '.packageManager // "unset"' package.json
 ls -1 yarn.lock package-lock.json pnpm-lock.yaml 2>/dev/null
 ```
