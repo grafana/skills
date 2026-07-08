@@ -54,7 +54,7 @@ grep -E 'strictDepBuilds:|dangerouslyAllowAllBuilds:|allowBuilds:' pnpm-workspac
 |---------|------|------|
 | npm | `.npmrc` has `ignore-scripts=true` | missing or `false` |
 | yarn | `enableScripts: false` or key absent | `enableScripts: true` |
-| pnpm ≥ 11 | `strictDepBuilds` unset/`true`, `dangerouslyAllowAllBuilds` unset/`false` | `strictDepBuilds: false` or `dangerouslyAllowAllBuilds: true` |
+| pnpm ≥ 11 | `strictDepBuilds` unset/`true`, `dangerouslyAllowAllBuilds` unset/`false`, and `allowBuilds` unset/`[]` | `strictDepBuilds: false`, `dangerouslyAllowAllBuilds: true`, or `allowBuilds` non-empty |
 | pnpm 10 | `.npmrc` `ignore-scripts=true` OR `strictDepBuilds: true` | neither |
 
 pnpm 11+ ignores script settings in `.npmrc` and `package.json#pnpm`. pnpm 10 / yarn edge cases: [references/managers.md](references/managers.md).
