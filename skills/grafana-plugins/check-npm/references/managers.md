@@ -22,7 +22,7 @@ If `packageManager` is pinned in root `package.json`, verify the pin meets the t
 
 pnpm 11+ ignores build-script settings in `package.json#pnpm` and non-auth `.npmrc` entries.
 
-Detail column: if `allowBuilds` (pnpm 11) or `onlyBuiltDependencies` (pnpm 10) lists packages, note which can still run scripts.
+Detail column: if `allowBuilds` (pnpm 11) or `onlyBuiltDependencies` (pnpm 10) lists packages, list them (these are explicit build-script exemptions and should be treated as a FAIL per the criteria above).
 
 ## Unsafe dependency protocols
 
