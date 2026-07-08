@@ -69,11 +69,9 @@ grep -E 'approvedGitRepositories:' .yarnrc.yml 2>/dev/null
 grep -E 'blockExoticSubdeps:' pnpm-workspace.yaml 2>/dev/null
 ```
 
-Scan all workspace `package.json` files (`dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`):
+Scan workspace `package.json` files (`dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`). Prefer workspace-member discovery (pnpm-workspace.yaml / root workspaces / lerna / rush) per [references/protocols.md](references/protocols.md), then scan only those manifests. Fallback (may overmatch non-workspace manifests):
 
-```bash
-find . -name package.json -not -path '*/node_modules/*'
-```
+    find . -name package.json -not -path '*/node_modules/*'
 
 **Safe values only:** semver range, `workspace:`, `patch:`, `npm:` alias to semver. Flag everything else (git URLs, tarballs, `user/repo` shorthand, `file:`, `link:`, `exec:`, …) as `path → name → value (protocol)`.
 
