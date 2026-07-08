@@ -103,7 +103,7 @@ After a failed freshness check, do not substitute a different version without us
 Collect:
 
 - All `package.json` files and workspace boundaries (`pnpm-workspace.yaml`).
-- `pnpm-lock.yaml` and existing `pnpm-workspace.yaml` security settings (`ignoreScripts`, `frozenLockfile`, `minimumReleaseAge`, `strictDepBuilds`, `blockExoticSubdeps`, `allowBuilds`).
+- `pnpm-lock.yaml`, `pnpm-workspace.yaml` security settings (`minimumReleaseAge`, `strictDepBuilds`, `blockExoticSubdeps`, `allowBuilds`), and install policy in `.npmrc` / CI flags (e.g. `--frozen-lockfile`, `--ignore-scripts`).
 - Direct dependency names by manifest section: `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`.
 - Existing verification commands from scripts, CI, or repo docs.
 - **CI spot-check** (`.github/workflows` or equivalent): installs should use `pnpm install --frozen-lockfile` and script blocking consistent with workspace config. Flag workflows that regenerate lockfiles on every run.
