@@ -152,7 +152,7 @@ Prefer deterministic measurement:
 2. Temporarily remove one direct dependency from the owning manifest.
 3. Run `pnpm install --ignore-scripts` (+ repo flags).
 4. Measure lockfile line/entry reduction and package count reduction.
-5. Revert the temporary removal before measuring the next dependency.
+5. Revert the manifest *and* `pnpm-lock.yaml` (e.g., `git checkout -- <manifest> pnpm-lock.yaml`) before measuring the next dependency.
 
 Use `pnpm why <pkg>` for large transitive packages. Rank by impact and risk, not just raw size.
 
