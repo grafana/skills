@@ -71,9 +71,9 @@ Respect repo install policy when present (e.g. `pnpm install --frozen-lockfile -
 | Explain dependency | `pnpm why <pkg>` |
 | Dedupe lockfile | `pnpm dedupe` (then `pnpm install --ignore-scripts` if lockfile changed) |
 | Outdated / version info | `pnpm outdated <pkg>` |
-| One-off tools | `pnpm dlx <pkg>@<version> --ignore-scripts` (pin version; prefer `pnpm exec` when in lockfile) |
+| One-off tools | `pnpm --config.ignore-scripts=true dlx <pkg>@<version> <args...>` (pin version; prefer `pnpm exec` when in lockfile) |
 
-**Lifecycle scripts:** Always `--ignore-scripts` on `pnpm install`, `pnpm add`, `pnpm remove`, and `pnpm dlx` unless the user explicitly writes **allow scripts** in the same message (state which scripts would run and the risk). If a dependency legitimately needs a build script (native modules, etc.), finish without scripts, then ask whether to run a **specific** manual rebuild (e.g. `pnpm rebuild <pkg>`).
+**Lifecycle scripts:** Always `--ignore-scripts` on `pnpm install`, `pnpm add`, and `pnpm remove` unless the user explicitly writes **allow scripts** in the same message (state which scripts would run and the risk). For `pnpm dlx`, `dlx` does not accept `--ignore-scripts` directly — use `pnpm --config.ignore-scripts=true dlx` (flags after `dlx` are forwarded to the executed binary). If a dependency legitimately needs a build script (native modules, etc.), finish without scripts, then ask whether to run a **specific** manual rebuild (e.g. `pnpm rebuild <pkg>`).
 
 **Freshness check (≥ 72 hours)** — required before any command that adds or upgrades a **named package version** (`pnpm add`, `pnpm dlx` with new/upgraded direct version). **Not required** for plain `pnpm install` / `pnpm remove` with no new package argument.
 
@@ -115,7 +115,7 @@ Record baseline metrics: `git status --short`, `wc -l pnpm-lock.yaml`. If `node_
 
 **Unsafe direct dependency protocols** — scan all workspace `package.json` dependency sections. Flag values that are not: semver range, `workspace:`, `patch:`, or `npm:` alias to semver. Flag `git:` / `github:` / tarball URLs / `user/repo` shorthand / `file:` / `link:` / `exec:` / etc. (same allow-list as `/check-npm`). Do not remove flagged entries silently; report for a separate hardening PR unless the user asked to fix them.
 
-Use a static analyzer as a starting point, not as proof (knip, depcheck, or repo-native tooling). Run with pinned `pnpm dlx <tool>@<version> --ignore-scripts` when not installed (freshness-check the pin first).
+Use a static analyzer as a starting point, not as proof (knip, depcheck, or repo-native tooling). Run with pinned `pnpm --config.ignore-scripts=true dlx <tool>@<version> <args...>` when not installed (freshness-check the pin first).
 
 For each candidate:
 
@@ -186,9 +186,9 @@ Prefer native APIs over new replacement dependencies when the required behavior 
 ## Step 7: Apply e18e guidance
 
 ```bash
-# Pin @e18e/cli@<version> after freshness check; add --ignore-scripts
-pnpm dlx @e18e/cli@<version> analyze --ignore-scripts
-pnpm dlx @e18e/cli@<version> migrate --dry-run --ignore-scripts
+# Pin @e18e/cli@<version> after freshness check; disable scripts on the dlx install
+pnpm --config.ignore-scripts=true dlx @e18e/cli@<version> analyze
+pnpm --config.ignore-scripts=true dlx @e18e/cli@<version> migrate --dry-run
 ```
 
 Also check https://e18e.dev/docs/replacements/. Treat recommendations as candidates, not mandates; verify bundle/runtime behavior and run tests. Map e18e swaps to **Replace-with-Better** only after user approval.
@@ -205,7 +205,7 @@ Summarize outcomes with measured impact:
 - High-impact candidates deferred and why (including replacements awaiting approval).
 - Unsafe protocol / CI / Renovate findings from baseline (if any).
 - Verification commands run and results.
-- Supply-chain: versions freshness-checked (or exempted), `--ignore-scripts` on all installs/adds/dlx.
+- Supply-chain: versions freshness-checked (or exempted), `--ignore-scripts` on all installs/adds, `--config.ignore-scripts=true` on `pnpm dlx`.
 
 Call out risk explicitly when a removal depends on static analysis rather than runtime coverage.
 
