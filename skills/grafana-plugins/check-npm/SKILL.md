@@ -72,7 +72,7 @@ grep -E 'blockExoticSubdeps:' pnpm-workspace.yaml 2>/dev/null
 Scan all workspace `package.json` files (`dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`):
 
 ```bash
-find . -name package.json -not -path '*/node_modules/*' | head -50
+find . -name package.json -not -path '*/node_modules/*'
 ```
 
 **Safe values only:** semver range, `workspace:`, `patch:`, `npm:` alias to semver. Flag everything else (git URLs, tarballs, `user/repo` shorthand, `file:`, `link:`, `exec:`, …) as `path → name → value (protocol)`.
