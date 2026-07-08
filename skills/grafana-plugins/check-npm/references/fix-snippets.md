@@ -27,6 +27,7 @@ ignore-scripts=true
 ```yaml
 strictDepBuilds: true
 dangerouslyAllowAllBuilds: false
+allowBuilds: []
 ```
 
 ```bash
