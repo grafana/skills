@@ -1,7 +1,7 @@
 ---
 name: check-npm
 license: Apache-2.0
-disable-model-invocation: true
+disable-model-invocation: false
 description: >-
   Audit a JavaScript/TypeScript repo's npm, yarn, or pnpm configuration for
   supply-chain hardening: tool version, lifecycle scripts, unsafe dependency
