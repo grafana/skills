@@ -80,6 +80,7 @@ Scan workspace `package.json` files (`dependencies`, `devDependencies`, `optiona
 | npm | `allow-git=none` or `root` | missing or `all` |
 | yarn | `approvedGitRepositories: []` or grafana-scoped list, or omitted with policy comment + clean scan | unsafe entries or broad allow-list |
 | pnpm ≥ 11 | `blockExoticSubdeps` unset/`true` | `false` |
+| pnpm 10.x | `blockExoticSubdeps: true` | unset (default `false`) or `false` |
 
 Protocol detection order and yarn posture details: [references/protocols.md](references/protocols.md).
 
