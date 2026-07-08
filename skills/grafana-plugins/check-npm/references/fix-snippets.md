@@ -7,7 +7,7 @@ npm install -g npm@11.15.0
 ```
 
 ```bash
-yarn set version stable
+yarn set version 4.14.0
 ```
 
 ```bash
