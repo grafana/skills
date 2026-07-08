@@ -11,7 +11,7 @@ yarn set version stable
 ```
 
 ```bash
-npm install -g pnpm@11
+npm install -g pnpm@11.0.0
 ```
 
 ## Lifecycle scripts
