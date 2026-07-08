@@ -16,7 +16,7 @@ If `packageManager` is pinned in root `package.json`, verify the pin meets the t
 |---------|------|------|------|
 | yarn | `.yarnrc.yml` | `enableScripts: false`, or key absent (yarn 4 default `false`) | `enableScripts: true` |
 | npm | `.npmrc` | `ignore-scripts=true` | missing or `ignore-scripts=false` |
-| pnpm ≥ 11 | `pnpm-workspace.yaml` | `strictDepBuilds` unset/`true` AND `dangerouslyAllowAllBuilds` unset/`false` | `strictDepBuilds: false` or `dangerouslyAllowAllBuilds: true` |
+| pnpm ≥ 11 | `pnpm-workspace.yaml` | `strictDepBuilds` unset/`true` AND `dangerouslyAllowAllBuilds` unset/`false` AND `allowBuilds` unset/`[]` | `strictDepBuilds: false` or `dangerouslyAllowAllBuilds: true` or `allowBuilds` non-empty |
 | pnpm 10.x | `.npmrc`, `pnpm-workspace.yaml`, `package.json#pnpm` | `.npmrc` has `ignore-scripts=true` OR `strictDepBuilds: true` | neither, or `ignore-scripts=false`, or `strictDepBuilds: false` |
 | pnpm < 10 | `.npmrc` | `ignore-scripts=true` | otherwise |
 
