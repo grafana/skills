@@ -128,6 +128,7 @@ min-release-age=3
 # pnpm 11 — pnpm-workspace.yaml
 strictDepBuilds: true
 dangerouslyAllowAllBuilds: false
+allowBuilds: []
 minimumReleaseAge: 4320
 blockExoticSubdeps: true
 ```
