@@ -88,7 +88,7 @@ Protocol detection order and yarn posture details: [references/protocols.md](ref
 3 days = 4320 minutes. npm uses **days**; yarn and pnpm use **minutes**.
 
 ```bash
-grep -E '^min-release-age=' .npmrc 2>/dev/null
+grep -E '^min(imum)?-release-age=' .npmrc 2>/dev/null
 grep -E 'npmMinimalAgeGate:' .yarnrc.yml 2>/dev/null
 grep -E 'minimumReleaseAge:|minimumReleaseAgeStrict:' pnpm-workspace.yaml 2>/dev/null
 ```
