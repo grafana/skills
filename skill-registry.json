@@ -243,11 +243,11 @@
     },
     {
       "name": "grafana-datasources",
-      "description": "Skills for working with grafana data source plugins",
+      "description": "Skills for working with Grafana data source plugins",
       "skills": [
         {
           "name": "datasources-provisioning",
-          "description": "Authoring and schema discovery of grafana data source plugin's configuration",
+          "description": "Authoring and schema discovery of Grafana data source plugin's configuration",
           "path": "skills/grafana-datasources/datasources-provisioning",
           "tags": [
             "grafana",

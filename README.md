@@ -146,11 +146,11 @@ Skills for working with k6 open-source load testing.
 
 ### grafana-datasources
 
-Skills for working with grafana data source plugins
+Skills for working with Grafana data source plugins.
 
 | Skill                                                                          | Description                                                                  |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| [datasources-provisioning](skills/grafana-datasources/datasources-provisioning) | Authoring and schema discovery of grafana data source plugin's configuration |
+| [datasources-provisioning](skills/grafana-datasources/datasources-provisioning) | Authoring and schema discovery of Grafana data source plugin's configuration |
 
 ---
 
@@ -179,7 +179,7 @@ grafana-skills/
 │   ├── grafana-lgtm/
 │   ├── grafana-plugins/
 │   ├── grafana-app-sdk/
-│   └── grafana-k6/
+│   ├── grafana-k6/
 │   └── grafana-datasources/
 ├── template/SKILL.md                 # Starter template for new skills
 ├── scripts/lint-skills.sh            # Local skill validation

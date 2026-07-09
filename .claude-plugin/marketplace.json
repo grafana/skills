@@ -164,7 +164,7 @@
     {
       "name": "grafana-datasources",
       "source": "./",
-      "description": "Skills for working with grafana data source plugins",
+      "description": "Skills for working with Grafana data source plugins",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
