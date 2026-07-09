@@ -30,7 +30,7 @@ jobs:
         # Tessl API token (from https://tessl.io workspace settings) maintained
         # in Grafana's dev Vault. The action no longer exports secrets as env
         # vars by default; we forward TESSL_TOKEN explicitly on the review step.
-        uses: grafana/shared-workflows/actions/get-vault-secrets@0a324424913040e0c11ee3d2dd7c969ed6dc1562 # main
+        uses: grafana/shared-workflows/actions/get-vault-secrets@e378ca000c6166a44060ed3a3c987a53da14128d # main
         with:
           vault_instance: dev
           repo_secrets: |
