@@ -30,6 +30,7 @@ claude plugin install grafana-cloud@grafana-skills
 claude plugin install grafana-lgtm@grafana-skills
 claude plugin install grafana-app-sdk@grafana-skills
 claude plugin install grafana-k6@grafana-skills
+claude plugin install grafana-datasources@grafana-skills
 ```
 
 ### Cursor
@@ -142,6 +143,14 @@ Skills for working with k6 open-source load testing.
 | [k6-docs](skills/grafana-k6/k6-docs) | Write or review k6 documentation across TypeScript types, user docs, and release notes |
 | [k6-perf-test-website](skills/grafana-k6/k6-perf-test-website) | Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook |
 | [k6-manage](skills/grafana-k6/k6-manage) | Operate Grafana Cloud k6 (GCk6) via the `gcx` CLI or direct curl — manage tests, runs, scripts, schedules, and env vars; fetch logs, metrics, traces, screenshots, and Cloud Insights |
+
+### grafana-datasources
+
+Skills for working with grafana data source plugins
+
+| Skill                                                                         | Description                                                                  |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [datasource-provisioning](skills/grafana-datasources/datasource-provisioning) | Authoring and schema discovery of grafana data source plugin's configuration |
 
 ---
 

@@ -29,7 +29,6 @@
         "./skills/grafana-core/dashboarding",
         "./skills/grafana-core/promql",
         "./skills/grafana-core/grafana-oss",
-        "./skills/grafana-core/datasource-provisioning",
         "./skills/grafana-core/alloy",
         "./skills/grafana-core/beyla",
         "./skills/grafana-core/opentelemetry",
@@ -160,6 +159,21 @@
         "./skills/grafana-k6/k6",
         "./skills/grafana-k6/k6-perf-test-website",
         "./skills/grafana-k6/k6-manage"
+      ]
+    },
+    {
+      "name": "grafana-datasources",
+      "source": "./",
+      "description": "Skills for working with grafana data source plugins",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "grafana",
+        "plugins",
+        "data-sources"
+      ],
+      "skills": [
+        "./skills/grafana-datasources/datasource-provisioning"
       ]
     }
   ]

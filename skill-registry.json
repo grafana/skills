@@ -133,6 +133,18 @@
           "tags": ["k6", "load-testing", "grafana-cloud", "gcx", "test-runs", "metrics", "logs"]
         }
       ]
+    },
+    {
+      "name": "grafana-datasources",
+      "description": "Skills for working with grafana data source plugins",
+      "skills": [
+        {
+          "name": "datasources-provisioning",
+          "description": "Authoring and schema discovery of grafana data source plugin's configuration",
+          "path": "skills/grafana-datasources/datasource-provisioning",
+          "tags": ["grafana", "plugins", "data-sources"]
+        }
+      ]
     }
   ]
 }
