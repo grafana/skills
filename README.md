@@ -113,13 +113,15 @@ Open-source LGTM observability stack — Loki, Tempo, Prometheus/Mimir, and Pyro
 
 ### grafana-plugins
 
-Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework.
+Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, dependency audits, and the @grafana/scenes framework.
 
 | Skill | Description |
 |-------|-------------|
 | [plugin-bundle-size](skills/grafana-plugins/plugin-bundle-size) | Optimise Grafana app plugin bundle size using React.lazy, Suspense, and webpack code splitting |
 | [react-19-plugin-migration](skills/grafana-plugins/react-19-plugin-migration) | Migrate a Grafana plugin to React 19 compatibility ahead of Grafana 13 |
 | [grafana-scenes](skills/grafana-plugins/grafana-scenes) | Build Grafana plugin pages using the @grafana/scenes framework |
+| [check-npm](skills/grafana-plugins/check-npm) | Audit npm, yarn, or pnpm package manager configuration for supply-chain hardening |
+| [audit-and-reduce-dependencies](skills/grafana-plugins/audit-and-reduce-dependencies) | Reduce pnpm dependency footprint — unused deps, deduplication, transitive closure triage |
 
 ### grafana-app-sdk
 
