@@ -1,206 +1,104 @@
 ---
 name: cost-management
 license: Apache-2.0
-description: >
-  Grafana Cloud cost management — usage monitoring, cost attribution by label, usage alerts, invoice
-  management, and optimization strategies. Covers Adaptive Metrics (cardinality reduction), Adaptive
-  Logs (log filtering), cost attribution labels, and the FOCUS-compliant billing application.
-  Use when analyzing Grafana Cloud spending, setting up cost alerts, attributing costs to teams,
-  reducing metric/log cardinality, or forecasting observability budgets.
+description: Cut your Grafana Cloud bill by attributing spend to teams and reducing telemetry volume. Covers FOCUS-compliant billing dashboards, cost-attribution labels in Alloy, Adaptive Metrics (cardinality reduction), Adaptive Logs (drop/sample), Adaptive Traces (tail sampling), usage alerts, and an optimization checklist. Use when investigating a high Grafana Cloud bill, attributing observability cost to a team or service, reducing active series / log bytes / trace spans, or setting up usage / quota alerts — even when the user says "our Grafana bill is too high", "who's burning the most metrics", "drop debug logs", "sample our traces", or "alert me before we hit quota" without naming Cost Management.
 ---
 
 # Grafana Cloud Cost Management
 
 > **Docs**: https://grafana.com/docs/grafana-cloud/cost-management-and-billing/
 
-## Cost Management & Billing Application
+Reduce metric / log / trace spend with Adaptive signals + cost-attribution labels.
 
-Access: **My Account → Cost Management** (or within your Grafana Cloud stack)
+## Prerequisites
 
-FOCUS-compliant (FinOps Open Cost and Usage Specification) billing dashboards showing:
-- Spending by signal type (metrics, logs, traces, profiles)
-- Month-over-month trends
-- Usage vs. quota tracking
-- Invoice download
+- A Grafana Cloud stack with Adaptive Metrics / Logs / Traces enabled (visible under **Cost Management**)
+- Alloy (or Grafana Agent) ingesting telemetry, with API key in scope `metrics:write` + `logs:write` (+ `traces:write`)
+- Admin access to the stack to apply Adaptive recommendations
 
-## Cost Attribution by Label
+## Common Workflows
 
-Tag your telemetry at ingestion to enable per-team cost reporting:
+### 1. Attribute cost to a team / service
 
 ```alloy
-// Add cost attribution labels in Alloy
+# 1. Add external labels in Alloy (metrics + logs configs)
 prometheus.remote_write "cloud" {
-  endpoint {
-    url = sys.env("PROMETHEUS_URL")
-    basic_auth {
-      username = sys.env("PROM_USER")
-      password = sys.env("GRAFANA_CLOUD_API_KEY")
-    }
-  }
-  external_labels = {
-    team    = "platform",
-    project = "checkout-service",
-    env     = "production",
-  }
-}
-
-loki.write "cloud" {
-  endpoint {
-    url = sys.env("LOKI_URL")
-    basic_auth {
-      username = sys.env("LOKI_USER")
-      password = sys.env("GRAFANA_CLOUD_API_KEY")
-    }
-  }
-  external_labels = {
-    team    = "platform",
-    project = "checkout-service",
-  }
+  endpoint { url = sys.env("PROMETHEUS_URL") /* ... */ }
+  external_labels = { team = "platform", project = "checkout-service" }
 }
 ```
-
-## Usage Alerts
-
-Set alerts before you hit quota or budget thresholds:
-
-```yaml
-# Alert when approaching metrics quota
-groups:
-  - name: grafana-cloud-usage
-    rules:
-      - alert: MetricsUsageHigh
-        expr: grafana_cloud_metrics_active_series / grafana_cloud_metrics_limit > 0.8
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Grafana Cloud metrics usage >80% of quota"
-
-      - alert: LogsIngestionHigh
-        expr: increase(grafana_cloud_logs_bytes_ingested_total[24h]) > 50e9  # 50GB/day
-        labels:
-          severity: warning
-        annotations:
-          summary: "Grafana Cloud log ingestion >50GB today"
-```
-
-## Adaptive Metrics (Reduce Cardinality)
-
-Automatically identifies unused or high-cardinality metrics and generates aggregation rules.
 
 ```bash
-# View recommendations
-curl https://yourstack.grafana.net/api/plugins/grafana-adaptive-metrics-app/resources/v1/recommendations \
-  -H "Authorization: Bearer <token>"
+# 2. Reload Alloy
+curl -X POST http://localhost:12345/-/reload
+
+# 3. Verify labels arrived in Grafana Cloud
+#    In Explore, run:  count by (team, project) ({__name__=~".+"})
+#    Then visit Cost Management → group by `team` / `project`
 ```
 
-```yaml
-# Apply aggregation rule — drops high-cardinality labels from a metric
-- match: "^http_request_duration_seconds.*"
-  action: keep
-  match_labels:
-    - method
-    - status_code
-    - service
-  # Drops: pod, container, instance, node — reduces series from 10k → 50
+See [`references/adaptive-signals.md`](references/adaptive-signals.md) for the full Alloy snippet.
+
+### 2. Cut metric cardinality with Adaptive Metrics
+
+```bash
+# 1. Pull recommendations
+curl https://<stack>.grafana.net/api/plugins/grafana-adaptive-metrics-app/resources/v1/recommendations \
+  -H "Authorization: Bearer <token>" | jq '.recommendations | length'
+
+# 2. In the UI: Grafana Cloud → Adaptive Metrics → review rules sorted by series-reduction impact
+# 3. Test in "Preview" mode before applying
+# 4. Apply (takes effect within 5 min)
+
+# 5. Verify — series count should drop on the affected metrics
+#    Before applying, capture baseline:
+#      count({__name__="http_request_duration_seconds_bucket"})
+#    Wait 10 min after apply, run again — expect 10x+ reduction for high-card metrics.
+
+# Rollback if needed: open the rule in the UI → Disable, or DELETE /v1/rules/<id>.
 ```
 
-**Workflow:**
-1. Go to **Grafana Cloud → Adaptive Metrics**
-2. Review recommended aggregation rules (sorted by series reduction impact)
-3. Test rules in "Preview" mode before applying
-4. Apply rules — takes effect within 5 minutes
-
-## Adaptive Logs (Reduce Log Volume)
-
-Drop or sample log lines before ingestion using Loki's pipeline stages in Alloy:
+### 3. Drop noisy logs in Alloy
 
 ```alloy
+# 1. Add a filter stage (see references/adaptive-signals.md for the full block)
 loki.process "filter_logs" {
   forward_to = [loki.write.cloud.receiver]
-
-  // Drop health check logs (high volume, low value)
-  stage.drop {
-    expression = ".*GET /health.*"
-  }
-
-  // Drop debug logs in production
-  stage.drop {
-    source     = "level"
-    expression = "debug"
-  }
-
-  // Sample verbose info logs (keep 10%)
-  stage.sampling {
-    rate = 0.1
-    source = "level"
-    value  = "info"
-  }
+  stage.drop { expression = ".*GET /health.*" }
 }
 ```
 
-## Adaptive Traces (Reduce Trace Volume)
+```bash
+# 2. Reload Alloy
+curl -X POST http://localhost:12345/-/reload
 
-Use Alloy tail-based sampling to keep only important traces:
-
-```alloy
-otelcol.processor.tail_sampling "cost_control" {
-  decision_wait = "10s"
-  policy {
-    name = "keep-errors"
-    type = "status_code"
-    status_code { status_codes = ["ERROR"] }
-  }
-  policy {
-    name = "keep-slow"
-    type = "latency"
-    latency { threshold_ms = 1000 }
-  }
-  policy {
-    name = "sample-rest"
-    type = "probabilistic"
-    probabilistic { sampling_percentage = 5 }
-  }
-  output {
-    traces = [otelcol.exporter.otlp.cloud.input]
-  }
-}
+# 3. Verify the filter — health logs should NOT appear in Logs Drilldown
+#    LogQL check (should return 0):
+#      sum(rate({app="my-app"} |= "GET /health" [5m]))
+#    Bytes-ingested should also drop. Compare 24h before/after:
+#      sum(increase(loki_ingester_chunk_size_bytes_sum[24h])) by (namespace)
 ```
 
-## Key Metrics for Cost Monitoring
+### 4. Set a usage alert before you hit quota
 
-```promql
-# Active metric series (billed unit for metrics)
-grafana_cloud_metrics_active_series
+See [`references/alerts-and-queries.md`](references/alerts-and-queries.md) for ready-to-paste rules (`MetricsUsageHigh`, `LogsIngestionHigh`).
 
-# Series by label (find high-cardinality sources)
-topk(20, count by (__name__) ({__name__=~".+"}))
+## Optimization checklist
 
-# Log bytes ingested per stream
-sum(increase(loki_ingester_chunk_size_bytes_sum[24h])) by (namespace, app)
-
-# Trace spans ingested
-rate(tempo_distributor_spans_received_total[5m])
-```
-
-## Optimization Checklist
-
-- [ ] Run Adaptive Metrics recommendations — typically reduces series 40-60%
-- [ ] Drop health/readiness probe logs in Alloy pipeline
-- [ ] Set sampling rate for traces (5-10% is typical for most workloads)
-- [ ] Review top-N high-cardinality metrics: `topk(20, count by (__name__))`
-- [ ] Add cost attribution labels (`team`, `project`) to all Alloy configs
+- [ ] Apply Adaptive Metrics recommendations — typically reduces series 40-60%
+- [ ] Drop health/readiness probe logs in Alloy
+- [ ] Tail-sample traces to 5-10% + keep errors / slow spans
+- [ ] Add `team` + `project` external labels to every Alloy config
 - [ ] Set usage alerts at 80% of quota
-- [ ] Review and clean up unused dashboards and data sources (they don't reduce cost but indicate stale collection)
-- [ ] Use recording rules to pre-aggregate expensive PromQL queries
+- [ ] Replace expensive ad-hoc queries with recording rules
 
-## Understanding Grafana Cloud Pricing
+## References
 
-| Signal | Billing Unit |
-|--------|-------------|
-| Metrics | Active series (unique label combinations) |
-| Logs | Bytes ingested |
-| Traces | Spans ingested |
-| Profiles | Bytes ingested |
-| Synthetic Monitoring | Check executions |
-| k6 | VUh (Virtual User hours) |
+- [`references/adaptive-signals.md`](references/adaptive-signals.md) — Adaptive Metrics / Logs / Traces config; cost-attribution labels
+- [`references/alerts-and-queries.md`](references/alerts-and-queries.md) — usage alert rules, cost-finding PromQL, billing-unit table
+
+## Resources
+
+- [Cost Management docs](https://grafana.com/docs/grafana-cloud/cost-management-and-billing/)
+- [Adaptive Metrics](https://grafana.com/docs/grafana-cloud/cost-management-and-billing/reduce-costs/metrics-costs/adaptive-metrics/)
+- [Adaptive Logs](https://grafana.com/docs/grafana-cloud/cost-management-and-billing/reduce-costs/logs-costs/)

@@ -1,86 +1,36 @@
 ---
 name: alloy
 license: Apache-2.0
-description: >
-  Grafana Alloy OpenTelemetry collector and telemetry pipeline configuration. Covers the Alloy configuration
-  language (blocks, attributes, expressions), components for collecting metrics/logs/traces/profiles,
-  sending data to Grafana Cloud/Prometheus/Loki/Tempo, clustering, Fleet Management remote config, and
-  building telemetry pipelines. Use when configuring Alloy, writing Alloy config files (.alloy),
-  building data collection pipelines, setting up scraping, or troubleshooting Alloy deployments.
+description: Build a unified telemetry pipeline with Grafana Alloy — one OpenTelemetry-compatible binary that collects metrics, logs, traces, and profiles and ships to Grafana Cloud / Prometheus / Loki / Tempo / Pyroscope. Covers the Alloy config language (blocks, `sys.env`, component refs), `prometheus.scrape` → `remote_write`, `loki.source.file` + `loki.process` → `loki.write`, `otelcol.receiver.otlp` → `otelcol.exporter.otlp`, `pyroscope.scrape`, K8s / Docker / EC2 discovery, relabeling, modules (`import.file/git/http`), clustering, Fleet Management `remotecfg`, the Alloy UI at `:12345`, and `alloy fmt` / `alloy validate`. Use when writing a `config.alloy`, replacing Grafana Agent / OTel Collector, scraping K8s pods, parsing logs, ingesting OTLP, or debugging "Alloy isn't sending anything" — even when the user says "set up the agent", "write me a scrape config", "drop these logs before sending", or "OTel collector config" without naming Alloy.
 ---
 
 # Grafana Alloy
 
 > **Docs**: https://grafana.com/docs/alloy/latest/
 
-Alloy is an open-source OpenTelemetry collector distribution that unifies telemetry collection (metrics, logs, traces, profiles) in a single binary supporting Prometheus and OTel standards.
+OpenTelemetry-compatible collector — one binary for metrics + logs + traces + profiles.
 
-## Installation
+## Prerequisites
 
-```bash
-# macOS
-brew install grafana/grafana/alloy
+- `alloy` CLI installed (`brew install grafana/grafana/alloy`, `apt install alloy`, or `grafana/alloy` Docker image)
+- An endpoint to ship to (Grafana Cloud, Prometheus, Loki, Tempo, Pyroscope)
+- API key + username for that endpoint, exported as `GRAFANA_API_KEY` etc.
 
-# Linux (Debian/Ubuntu)
-sudo apt install alloy
+## Common Workflows
 
-# Docker
-docker run -v $(pwd)/config.alloy:/etc/alloy/config.alloy \
-  grafana/alloy:latest run /etc/alloy/config.alloy
-
-# Kubernetes (Helm)
-helm repo add grafana https://grafana.github.io/helm-charts
-helm install alloy grafana/alloy --version 1.8.2 -f values.yaml
-
-# Run
-alloy run /path/to/config.alloy
-```
-
-**Default config paths:**
-- Linux: `/etc/alloy/config.alloy`
-- macOS: `$(brew --prefix)/etc/alloy/config.alloy`
-- Windows: `%ProgramFiles%\GrafanaLabs\Alloy\config.alloy`
-
-## Config Language Syntax
-
-Config files use `.alloy` extension (UTF-8). See `references/config-syntax.md` for full reference.
+### 1. Write + validate a config locally
 
 ```alloy
-// Block syntax: BLOCK_TYPE "LABEL" { ... }
-prometheus.scrape "my_scraper" {
-  targets    = [{"__address__" = "localhost:9090"}]
-  forward_to = [prometheus.remote_write.cloud.receiver]
-}
-
-// Attribute: NAME = VALUE
-scrape_interval = "30s"
-
-// Reference another component's export
-forward_to = [prometheus.remote_write.cloud.receiver]
-
-// Environment variable
-password = sys.env("GRAFANA_API_KEY")
-
-// String concat
-url = "https://" + sys.env("HOST")
-```
-
-## Core Component Patterns
-
-See `references/components.md` for full component reference.
-
-### Metrics: Scrape → Remote Write
-
-```alloy
+// config.alloy — metrics → Grafana Cloud
 prometheus.scrape "app" {
-  targets    = discovery.kubernetes.pods.targets
+  targets = [{"__address__" = "localhost:9090"}]
   forward_to = [prometheus.remote_write.cloud.receiver]
   scrape_interval = "30s"
 }
 
 prometheus.remote_write "cloud" {
   endpoint {
-    url = "https://prometheus-xxx.grafana.net/api/prom/push"
+    url = sys.env("PROMETHEUS_URL")
     basic_auth {
       username = sys.env("PROM_USER")
       password = sys.env("GRAFANA_API_KEY")
@@ -89,20 +39,37 @@ prometheus.remote_write "cloud" {
 }
 ```
 
-### Logs: File → Loki
+```bash
+# 1. Format + syntax-check (catches typos before run)
+alloy fmt config.alloy
+alloy validate config.alloy
+
+# 2. Run it
+alloy run config.alloy
+# or as a service: systemctl restart alloy
+
+# 3. Verify all components are healthy via the UI on port 12345
+curl -s http://localhost:12345/api/v0/web/components \
+  | jq '.[] | select(.health.state != "healthy") | {id, state:.health.state, msg:.health.message}'
+# Expect: empty (nothing unhealthy). Otherwise the row shows the failing component + reason.
+
+# 4. Verify samples are flowing
+curl -s http://localhost:12345/metrics \
+  | grep -E '^prometheus_remote_storage_(samples_total|enqueue_retries_total)' | head
+# samples_total should be > 0 and rising; retries should be 0.
+```
+
+### 2. Add log shipping (file → Loki)
 
 ```alloy
 loki.source.file "app_logs" {
-  targets = [
-    {__path__ = "/var/log/app/*.log",   job = "app"},
-    {__path__ = "/var/log/nginx/*.log", job = "nginx"},
-  ]
+  targets    = [{ __path__ = "/var/log/app/*.log", job = "app" }]
   forward_to = [loki.write.cloud.receiver]
 }
 
 loki.write "cloud" {
   endpoint {
-    url = "https://logs-xxx.grafana.net/loki/api/v1/push"
+    url = sys.env("LOKI_URL")
     basic_auth {
       username = sys.env("LOKI_USER")
       password = sys.env("GRAFANA_API_KEY")
@@ -111,17 +78,21 @@ loki.write "cloud" {
 }
 ```
 
-### Traces: OTLP Receive → Export
+```bash
+# Verify in Grafana → Explore → Loki:
+#   {job="app"}
+# Expect lines streaming. If empty:
+#   - check /var/log/app/*.log actually exists + readable by the alloy user
+#   - http://localhost:12345 → loki.source.file.app_logs → "Targets" tab
+```
+
+### 3. Receive OTLP traces and ship to Tempo
 
 ```alloy
 otelcol.receiver.otlp "default" {
   grpc { endpoint = "0.0.0.0:4317" }
   http { endpoint = "0.0.0.0:4318" }
-  output {
-    traces  = [otelcol.exporter.otlp.tempo.input]
-    metrics = [otelcol.exporter.prometheus.local.input]
-    logs    = [otelcol.exporter.loki.cloud.input]
-  }
+  output { traces = [otelcol.exporter.otlp.tempo.input] }
 }
 
 otelcol.exporter.otlp "tempo" {
@@ -137,261 +108,29 @@ otelcol.auth.basic "grafana_cloud" {
 }
 ```
 
-### Kubernetes Discovery
-
-```alloy
-discovery.kubernetes "pods" {
-  role = "pod"
-}
-
-discovery.relabel "pods" {
-  targets = discovery.kubernetes.pods.targets
-  rule {
-    source_labels = ["__meta_kubernetes_pod_label_app"]
-    target_label  = "app"
-  }
-  rule {
-    source_labels = ["__meta_kubernetes_namespace"]
-    target_label  = "namespace"
-  }
-  // Drop pods without app label
-  rule {
-    source_labels = ["__meta_kubernetes_pod_label_app"]
-    regex         = ""
-    action        = "drop"
-  }
-}
-
-prometheus.scrape "kubernetes" {
-  targets    = discovery.relabel.pods.output
-  forward_to = [prometheus.remote_write.cloud.receiver]
-}
+```bash
+# Verify in Grafana → Explore → Tempo → service.name = your-service
+# At the Alloy level, watch the receiver:
+curl -s http://localhost:12345/metrics | grep otelcol_receiver_accepted_spans
 ```
 
-## Configuration Blocks (top-level)
+Full pattern set (Kubernetes discovery + relabel, complete Cloud pipeline for all 4 signals): [`references/collection-patterns.md`](references/collection-patterns.md).
 
-```alloy
-logging {
-  level  = "info"   // debug, info, warn, error
-  format = "logfmt" // logfmt, json
-}
+## Reference
 
-http {
-  listen_addr = "0.0.0.0:12345"  // UI at http://localhost:12345
-}
+- [`references/config-syntax.md`](references/config-syntax.md) — block/attribute/expression grammar, `import.*`, `remotecfg`, clustering
+- [`references/components.md`](references/components.md) — full component catalog with purpose + typical args
+- [`references/collection-patterns.md`](references/collection-patterns.md) — end-to-end pipelines (K8s pods, OTLP, profiles, logs)
 
-// Fleet Management remote config
-remotecfg {
-  url = "https://fleet-management.grafana.net"
-  basic_auth {
-    username = sys.env("FM_USERNAME")
-    password = sys.env("FM_TOKEN")
-  }
-  poll_interval = "1m"
-}
+## Troubleshooting
 
-tracing {
-  sampling_fraction = 0.1
-  write_to = [otelcol.exporter.otlp.default.input]
-}
-```
+- `alloy validate` → "component not found" → version too old; `alloy --version` and upgrade
+- UI shows component `unhealthy` → click into it on http://localhost:12345 for the live error
+- `prometheus_remote_storage_samples_dropped_total` rising → check `enqueue_retries_total` and the remote_write endpoint URL + creds
+- No spans landing in Tempo → check `otelcol_receiver_refused_spans` and the exporter's `otelcol_exporter_sent_spans` / `otelcol_exporter_send_failed_spans`
 
-## Modules and Imports
+## Resources
 
-```alloy
-// Import from local file
-import.file "utils" {
-  filename = "./modules/utils.alloy"
-}
-
-// Import from Git
-import.git "k8s_monitoring" {
-  repository = "https://github.com/grafana/alloy-modules"
-  revision   = "main"
-  path       = "modules/kubernetes/"
-}
-
-// Import from HTTP
-import.http "shared" {
-  url            = "https://config-server/alloy/shared.alloy"
-  poll_frequency = "5m"
-}
-
-// Use imported component
-utils.my_component "example" {
-  arg = "value"
-}
-```
-
-## Clustering
-
-Making Alloy aware of peers for clustering and distributing the workload,
-requires setting command-line flags to the `run` command or the system service
-definition.
-
-At minimum, these are the `--cluster.enabled` flag to enable the clustering
-service, and one of `--cluster.join-addresses` or `--cluster.discover-peers` to
-instruct Alloy how to join the cluster. Look at the rest of the `--cluster.*`
-flags to fine-tune the clustering behavior.
-
-With Alloy clustering, cluster-aware components can use the `clustering` block
-to set `enabled=true` and distribute the workload within cluster members.
-
-```alloy
-prometheus.scrape "cluster_aware" {
-  targets    = discovery.kubernetes.pods.targets
-  forward_to = [prometheus.remote_write.cloud.receiver]
-  clustering { enabled = true }  // distributes scrape targets across cluster nodes
-}
-```
-
-## Processing: Relabeling and Transformation
-
-```alloy
-// Relabel metrics
-prometheus.relabel "filter" {
-  forward_to = [prometheus.remote_write.cloud.receiver]
-  rule {
-    source_labels = ["__name__"]
-    regex         = "go_.*"
-    action        = "drop"
-  }
-  rule {
-    source_labels = ["env"]
-    replacement   = "production"
-    target_label  = "environment"
-  }
-}
-
-// Loki pipeline processing
-loki.process "parse" {
-  forward_to = [loki.write.cloud.receiver]
-  stage.json {
-    expressions = { level = "level", msg = "message" }
-  }
-  stage.labels {
-    values = { level = "" }
-  }
-  stage.drop {
-    expression = ".*health check.*"
-  }
-}
-```
-
-## Key Components Quick Reference
-
-| Component | Purpose |
-|-----------|---------|
-| `prometheus.scrape` | Scrape Prometheus metrics endpoints |
-| `prometheus.remote_write` | Send metrics via remote write |
-| `prometheus.relabel` | Relabel/filter metrics |
-| `loki.source.file` | Read logs from files |
-| `loki.source.kubernetes` | Read Kubernetes pod logs |
-| `loki.write` | Send logs to Loki |
-| `loki.process` | Process/transform logs (pipeline stages) |
-| `otelcol.receiver.otlp` | Receive OTLP data (gRPC/HTTP) |
-| `otelcol.exporter.otlp` | Export via OTLP gRPC |
-| `otelcol.exporter.otlphttp` | Export via OTLP HTTP |
-| `otelcol.processor.batch` | Batch telemetry before exporting |
-| `otelcol.processor.memory_limiter` | Limit memory usage |
-| `discovery.kubernetes` | Discover Kubernetes targets |
-| `discovery.docker` | Discover Docker containers |
-| `discovery.ec2` | Discover AWS EC2 instances |
-| `discovery.relabel` | Relabel discovery targets |
-| `pyroscope.scrape` | Scrape profiling data |
-| `pyroscope.write` | Send profiles to Pyroscope |
-| `beyla.ebpf` | eBPF auto-instrumentation |
-
-## Complete Grafana Cloud Pipeline
-
-```alloy
-// METRICS
-prometheus.scrape "all" {
-  targets = array.concat(
-    discovery.kubernetes.nodes.targets,
-    discovery.kubernetes.pods.targets,
-  )
-  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
-  scrape_interval = "60s"
-}
-
-prometheus.remote_write "grafana_cloud" {
-  endpoint {
-    url = sys.env("PROMETHEUS_URL")
-    basic_auth {
-      username = sys.env("PROMETHEUS_USER")
-      password = sys.env("GRAFANA_API_KEY")
-    }
-  }
-  external_labels = {
-    cluster = "prod-us-east",
-    env     = "production",
-  }
-}
-
-// LOGS
-loki.source.kubernetes "pods" {
-  targets    = discovery.kubernetes.pods.targets
-  forward_to = [loki.process.add_labels.receiver]
-}
-
-loki.process "add_labels" {
-  forward_to = [loki.write.grafana_cloud.receiver]
-  stage.static_labels {
-    values = { cluster = "prod-us-east" }
-  }
-}
-
-loki.write "grafana_cloud" {
-  endpoint {
-    url = sys.env("LOKI_URL")
-    basic_auth {
-      username = sys.env("LOKI_USER")
-      password = sys.env("GRAFANA_API_KEY")
-    }
-  }
-}
-
-// TRACES
-otelcol.receiver.otlp "default" {
-  grpc {}
-  http {}
-  output {
-    traces = [otelcol.exporter.otlp.grafana_cloud.input]
-  }
-}
-
-otelcol.exporter.otlp "grafana_cloud" {
-  client {
-    endpoint = sys.env("TEMPO_ENDPOINT")
-    auth     = otelcol.auth.basic.grafana_cloud.handler
-  }
-}
-
-otelcol.auth.basic "grafana_cloud" {
-  username = sys.env("TEMPO_USER")
-  password = sys.env("GRAFANA_API_KEY")
-}
-
-// PROFILES
-pyroscope.scrape "default" {
-  targets    = [{"__address__" = "localhost:6060", "service_name" = "myapp"}]
-  forward_to = [pyroscope.write.grafana_cloud.receiver]
-}
-
-pyroscope.write "grafana_cloud" {
-  endpoint {
-    url = sys.env("PYROSCOPE_URL")
-    basic_auth {
-      username = sys.env("PYROSCOPE_USER")
-      password = sys.env("GRAFANA_API_KEY")
-    }
-  }
-}
-```
-
-## References
-
-- [Components Reference](references/components.md)
-- [Config Language Syntax](references/config-syntax.md)
-- [Collection Patterns](references/collection-patterns.md)
+- [Alloy docs](https://grafana.com/docs/alloy/latest/)
+- [Component reference](https://grafana.com/docs/alloy/latest/reference/components/)
+- [Migrate from Grafana Agent](https://grafana.com/docs/alloy/latest/set-up/migrate/from-agent/)
