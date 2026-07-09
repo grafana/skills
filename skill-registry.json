@@ -11,19 +11,37 @@
           "name": "plugin-bundle-size",
           "description": "Optimise Grafana app plugin bundle size using React.lazy, Suspense, and webpack code splitting. Use when the user asks to reduce plugin bundle size, fix large bundles, or split plugin code.",
           "path": "skills/grafana-plugins/plugin-bundle-size",
-          "tags": ["plugins", "bundle-size", "webpack", "react", "performance"]
+          "tags": [
+            "plugins",
+            "bundle-size",
+            "webpack",
+            "react",
+            "performance"
+          ]
         },
         {
           "name": "react-19-plugin-migration",
           "description": "Migrate a Grafana plugin to React 19 compatibility. Use when the user asks to update a plugin for React 19, fix React 19 build errors, or prepare a plugin for Grafana 12.",
           "path": "skills/grafana-plugins/react-19-plugin-migration",
-          "tags": ["plugins", "react", "migration", "react-19"]
+          "tags": [
+            "plugins",
+            "react",
+            "migration",
+            "react-19"
+          ]
         },
         {
           "name": "grafana-scenes",
           "description": "Build Grafana plugin pages using the @grafana/scenes framework. Use when creating scene pages, adding panels, setting up drilldown navigation, defining variables, or working with SceneApp, EmbeddedScene, SceneQueryRunner, or PanelBuilders.",
           "path": "skills/grafana-plugins/grafana-scenes",
-          "tags": ["plugins", "scenes", "react", "grafana-scenes", "drilldown", "panels"]
+          "tags": [
+            "plugins",
+            "scenes",
+            "react",
+            "grafana-scenes",
+            "drilldown",
+            "panels"
+          ]
         }
       ]
     },
@@ -40,13 +58,27 @@
           "name": "dpm-finder",
           "description": "Grafana Professional Services tool for identifying which Prometheus metrics drive high Data Points per Minute (DPM). Analyzes metric-level DPM with per-label breakdown to help optimize Grafana Cloud costs. Use when the user asks about DPM analysis, high-cardinality metrics, metric cost optimization, finding noisy metrics, or running dpm-finder.",
           "path": "skills/grafana-cloud/dpm-finder",
-          "tags": ["grafana-cloud", "dpm", "metrics", "cost-optimization", "prometheus", "professional-services"]
+          "tags": [
+            "grafana-cloud",
+            "dpm",
+            "metrics",
+            "cost-optimization",
+            "prometheus",
+            "professional-services"
+          ]
         },
         {
           "name": "loki-label-analyzer",
           "description": "Expert evaluator for Grafana Loki label strategy. Audits, designs, and improves label schemas using cardinality scoring, access-pattern alignment, static vs. dynamic label rules, and consistency checks. Use when the user asks to evaluate, audit, design, or improve a Loki label strategy — or asks why their Loki queries are slow.",
           "path": "skills/grafana-cloud/loki-label-analyzer",
-          "tags": ["grafana-cloud", "loki", "logs", "labels", "cardinality", "alloy"]
+          "tags": [
+            "grafana-cloud",
+            "loki",
+            "logs",
+            "labels",
+            "cardinality",
+            "alloy"
+          ]
         }
       ]
     },
@@ -58,25 +90,51 @@
           "name": "loki",
           "description": "Grafana Loki log aggregation including LogQL queries, log pipelines, structured metadata, and integration patterns. Use when working with Loki, writing LogQL queries, configuring log pipelines, or discussing log aggregation architecture.",
           "path": "skills/grafana-lgtm/loki",
-          "tags": ["loki", "logs", "logql", "log-aggregation", "logging"]
+          "tags": [
+            "loki",
+            "logs",
+            "logql",
+            "log-aggregation",
+            "logging"
+          ]
         },
         {
           "name": "tempo",
           "description": "Grafana Tempo distributed tracing including TraceQL queries, service graphs, trace correlations, and OpenTelemetry integration. Use when working with Tempo, writing TraceQL queries, configuring trace-to-logs/metrics/profiles, or discussing distributed tracing.",
           "path": "skills/grafana-lgtm/tempo",
-          "tags": ["tempo", "tracing", "traceql", "opentelemetry", "distributed-tracing", "service-graph"]
+          "tags": [
+            "tempo",
+            "tracing",
+            "traceql",
+            "opentelemetry",
+            "distributed-tracing",
+            "service-graph"
+          ]
         },
         {
           "name": "prometheus",
           "description": "Prometheus and Grafana Cloud Metrics including PromQL queries, alerting, recording rules, and integration patterns. Use when working with Prometheus, writing PromQL queries beyond basic usage, configuring Alertmanager, or discussing metrics architecture.",
           "path": "skills/grafana-lgtm/prometheus",
-          "tags": ["prometheus", "mimir", "metrics", "promql", "alerting", "recording-rules"]
+          "tags": [
+            "prometheus",
+            "mimir",
+            "metrics",
+            "promql",
+            "alerting",
+            "recording-rules"
+          ]
         },
         {
           "name": "pyroscope",
           "description": "Grafana Pyroscope continuous profiling including profile types, flame graphs, diff views, and language support. Use when working with Pyroscope, analyzing flame graphs, optimizing code performance, or integrating profiling with traces.",
           "path": "skills/grafana-lgtm/pyroscope",
-          "tags": ["pyroscope", "profiling", "flame-graphs", "performance", "continuous-profiling"]
+          "tags": [
+            "pyroscope",
+            "profiling",
+            "flame-graphs",
+            "performance",
+            "continuous-profiling"
+          ]
         }
       ]
     },
@@ -88,25 +146,53 @@
           "name": "app-sdk-concepts",
           "description": "Grafana App SDK foundational concepts including project initialization, deployment modes (standalone operator, grafana/apps, frontend-only), and the overall development workflow. Use when creating a Grafana app, initializing a grafana-app-sdk project, or asking about deployment modes.",
           "path": "skills/grafana-app-sdk/app-sdk-concepts",
-          "tags": ["app-sdk", "app-platform", "grafana", "kubernetes", "operator", "cue"]
+          "tags": [
+            "app-sdk",
+            "app-platform",
+            "grafana",
+            "kubernetes",
+            "operator",
+            "cue"
+          ]
         },
         {
           "name": "cue-kind-definition",
           "description": "CUE kind definitions and schemas for grafana-app-sdk projects. Use when defining a kind, adding a CUE kind, writing a kind schema, modeling a resource, adding versions, or asking about CUE kind structure, codegen config, spec vs status, or versioning.",
           "path": "skills/grafana-app-sdk/cue-kind-definition",
-          "tags": ["app-sdk", "cue", "kinds", "schema", "codegen", "app-platform"]
+          "tags": [
+            "app-sdk",
+            "cue",
+            "kinds",
+            "schema",
+            "codegen",
+            "app-platform"
+          ]
         },
         {
           "name": "reconciler-logic",
           "description": "Reconciler and watcher business logic for grafana-app-sdk apps. Use when writing a reconciler, implementing async resource processing, handling create/update/delete events, using TypedReconciler, or writing a controller.",
           "path": "skills/grafana-app-sdk/reconciler-logic",
-          "tags": ["app-sdk", "reconciler", "watcher", "kubernetes", "controller", "operator"]
+          "tags": [
+            "app-sdk",
+            "reconciler",
+            "watcher",
+            "kubernetes",
+            "controller",
+            "operator"
+          ]
         },
         {
           "name": "admission-control",
           "description": "Validation and mutation admission handlers for grafana-app-sdk apps. Use when writing a validator, adding admission control, implementing a mutating webhook, validating incoming resources, or asking how to validate or mutate resources before persistence.",
           "path": "skills/grafana-app-sdk/admission-control",
-          "tags": ["app-sdk", "admission", "validation", "mutation", "webhook", "kubernetes"]
+          "tags": [
+            "app-sdk",
+            "admission",
+            "validation",
+            "mutation",
+            "webhook",
+            "kubernetes"
+          ]
         }
       ]
     },
@@ -118,19 +204,40 @@
           "name": "k6-docs",
           "description": "Write or review k6 documentation across TypeScript types (k6-DefinitelyTyped), user docs (k6-docs), and release notes. Use when documenting k6 features, reviewing k6 pull requests for documentation, or writing TypeScript type definitions.",
           "path": "skills/grafana-k6/k6-docs",
-          "tags": ["k6", "load-testing", "documentation", "typescript", "release-notes"]
+          "tags": [
+            "k6",
+            "load-testing",
+            "documentation",
+            "typescript",
+            "release-notes"
+          ]
         },
         {
           "name": "k6-perf-test-website",
           "description": "Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook. Use when load-testing, stress-testing, or performance-testing a website with k6.",
           "path": "skills/grafana-k6/k6-perf-test-website",
-          "tags": ["k6", "load-testing", "performance", "browser", "slo", "grafana-cloud"]
+          "tags": [
+            "k6",
+            "load-testing",
+            "performance",
+            "browser",
+            "slo",
+            "grafana-cloud"
+          ]
         },
         {
           "name": "k6-manage",
           "description": "Operate Grafana Cloud k6 (GCk6) through the gcx CLI (or direct curl when gcx is unavailable): manage load tests, test runs, scripts, projects, schedules, and env vars; fetch logs, metrics, traces, screenshots, and Cloud Insights; and run scripts locally. Use when listing, creating, or aborting k6 cloud tests, fetching logs or metrics for a run, editing a k6 script, managing project limits or schedules, or calling the /cloud/v6, /cloud/v5, or k6-app Loki endpoints against a Grafana Cloud stack.",
           "path": "skills/grafana-k6/k6-manage",
-          "tags": ["k6", "load-testing", "grafana-cloud", "gcx", "test-runs", "metrics", "logs"]
+          "tags": [
+            "k6",
+            "load-testing",
+            "grafana-cloud",
+            "gcx",
+            "test-runs",
+            "metrics",
+            "logs"
+          ]
         }
       ]
     },
@@ -141,8 +248,12 @@
         {
           "name": "datasources-provisioning",
           "description": "Authoring and schema discovery of grafana data source plugin's configuration",
-          "path": "skills/grafana-datasources/datasource-provisioning",
-          "tags": ["grafana", "plugins", "data-sources"]
+          "path": "skills/grafana-datasources/datasources-provisioning",
+          "tags": [
+            "grafana",
+            "plugins",
+            "data-sources"
+          ]
         }
       ]
     }

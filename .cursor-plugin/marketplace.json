@@ -173,7 +173,7 @@
         "data-sources"
       ],
       "skills": [
-        "./skills/grafana-datasources/datasource-provisioning"
+        "./skills/grafana-datasources/datasources-provisioning"
       ]
     }
   ]
