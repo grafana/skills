@@ -1,167 +1,91 @@
 ---
 name: private-connectivity
 license: Apache-2.0
-description: >
-  Grafana Cloud private network connectivity — AWS PrivateLink, Azure Private Link, and GCP Private
-  Service Connect. Send telemetry (metrics, logs, traces, profiles) to Grafana Cloud without traversing
-  the public internet. Eliminates cloud egress costs, meets compliance requirements (PCI-DSS, HIPAA).
-  Use when setting up secure private telemetry ingestion from AWS/Azure/GCP, reducing egress costs,
-  or meeting data residency/compliance requirements.
+description: Set up private network connectivity to Grafana Cloud — AWS PrivateLink, Azure Private Link, GCP Private Service Connect, and Private Data Source Connect (PDC). Provisions VPC endpoints, private endpoints, or PSC forwarding rules per signal type (metrics / logs / traces / profiles); wires Alloy to push to the private DNS endpoint instead of the public one; verifies private DNS resolution + endpoint approval state. Use when sending telemetry to Grafana Cloud without traversing the public internet, eliminating cloud egress costs, meeting PCI-DSS / HIPAA / data-residency compliance, configuring PDC for private data-source queries, or connecting AWS / Azure / GCP workloads to Grafana — even when the user says "stop paying egress", "keep our telemetry off the public internet", or "PCI compliance for Grafana" without naming PrivateLink.
 ---
 
 # Grafana Cloud Private Connectivity
 
 > **Docs**: https://grafana.com/docs/grafana-cloud/send-data/
 
-Send metrics, logs, traces, and profiles to Grafana Cloud entirely over your cloud provider's
-private backbone — no public internet exposure, no egress fees.
+Send metrics, logs, traces, and profiles to Grafana Cloud entirely over your cloud provider's private backbone — no public internet exposure, no egress fees.
 
-## Prerequisites
+## Common Workflows
 
-**All providers:**
+### Setting up AWS PrivateLink (most common)
+
+1. **Find your service names.** Grafana Cloud → Stack Details → "Send using AWS PrivateLink". Note one service name per signal type (metrics / logs / traces / profiles).
+
+2. **Create an Interface VPC Endpoint per signal type:**
+
+   ```bash
+   aws ec2 create-vpc-endpoint \
+     --vpc-id vpc-12345 \
+     --service-name com.amazonaws.vpce.us-east-1.vpce-svc-0abc123 \
+     --vpc-endpoint-type Interface \
+     --subnet-ids subnet-12345 \
+     --security-group-ids sg-12345 \
+     --private-dns-enabled
+   ```
+
+3. **Verify private DNS resolves** (CRITICAL — if this returns a public IP, Alloy will silently keep using the public path and you'll keep paying egress):
+
+   ```bash
+   dig +short prometheus-private.us-east-0.grafana.net
+   # Expected: a 10.x.x.x / 172.16-31.x.x / 192.168.x.x address
+   # Public IP returned → check `private_dns_enabled = true` was set and the VPC has DNS hostnames enabled
+   ```
+
+4. **Update Alloy to use the private endpoint:**
+
+   ```alloy
+   prometheus.remote_write "cloud_private" {
+     endpoint {
+       url = "https://prometheus-private.us-east-0.grafana.net/api/prom/push"
+       basic_auth {
+         username = sys.env("PROM_USER")
+         password = sys.env("GRAFANA_CLOUD_API_KEY")
+       }
+     }
+   }
+
+   loki.write "cloud_private" {
+     endpoint {
+       url = "https://logs-private.us-east-0.grafana.net/loki/api/v1/push"
+       basic_auth {
+         username = sys.env("LOKI_USER")
+         password = sys.env("GRAFANA_CLOUD_API_KEY")
+       }
+     }
+   }
+   ```
+
+5. **Confirm traffic is flowing over PrivateLink:** check the VPC endpoint's CloudWatch metrics for `BytesProcessed` after Alloy starts pushing.
+
+Full Terraform + per-signal-type endpoint resources in [references/aws.md](references/aws.md).
+
+### Setting up Azure Private Link / GCP Private Service Connect
+
+Different provider, same shape: create the private endpoint → wait for approval → verify private DNS → update Alloy URLs. Full CLI + verification steps in [references/azure-gcp.md](references/azure-gcp.md).
+
+**Azure-specific prereq:** Pre-register your Subscription IDs with Grafana Support before starting — without this the endpoint creation hangs at "Pending".
+
+## Prerequisites (all providers)
+
 - Grafana Cloud stack must be hosted on the same cloud provider (check: My Account → Stack → Details)
-- Create separate private endpoints for each signal type (Metrics, Logs, Traces, Profiles)
+- Create separate private endpoints for each signal type (metrics / logs / traces / profiles) — they have distinct service names
+- Same region only for AWS PrivateLink. Cross-region requires VPC peering first.
 
-## AWS PrivateLink
-
-### Setup
-
-1. **Get Service Names** from Grafana Cloud → Stack Details → "Send using AWS PrivateLink"
-2. **Create Interface VPC Endpoints** in AWS Console for each service:
-
-```bash
-# Via AWS CLI
-aws ec2 create-vpc-endpoint \
-  --vpc-id vpc-12345 \
-  --service-name com.amazonaws.vpce.us-east-1.vpce-svc-0abc123 \
-  --vpc-endpoint-type Interface \
-  --subnet-ids subnet-12345 \
-  --security-group-ids sg-12345 \
-  --private-dns-enabled
-```
-
-3. **Update Alloy config** to use private DNS names from Grafana Cloud console:
-
-```alloy
-prometheus.remote_write "cloud_private" {
-  endpoint {
-    // Use private DNS name instead of public endpoint
-    url = "https://prometheus-private.us-east-0.grafana.net/api/prom/push"
-    basic_auth {
-      username = sys.env("PROM_USER")
-      password = sys.env("GRAFANA_CLOUD_API_KEY")
-    }
-  }
-}
-
-loki.write "cloud_private" {
-  endpoint {
-    url = "https://logs-private.us-east-0.grafana.net/loki/api/v1/push"
-    basic_auth {
-      username = sys.env("LOKI_USER")
-      password = sys.env("GRAFANA_CLOUD_API_KEY")
-    }
-  }
-}
-```
-
-### Terraform
-
-```hcl
-resource "aws_vpc_endpoint" "grafana_metrics" {
-  vpc_id              = var.vpc_id
-  service_name        = var.grafana_metrics_service_name  # from Grafana Cloud console
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = var.subnet_ids
-  security_group_ids  = [aws_security_group.grafana_endpoint.id]
-  private_dns_enabled = true
-
-  tags = { Name = "grafana-metrics-privatelink" }
-}
-
-resource "aws_vpc_endpoint" "grafana_logs" {
-  vpc_id              = var.vpc_id
-  service_name        = var.grafana_logs_service_name
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = var.subnet_ids
-  security_group_ids  = [aws_security_group.grafana_endpoint.id]
-  private_dns_enabled = true
-
-  tags = { Name = "grafana-logs-privatelink" }
-}
-```
-
-**Limitation:** PrivateLink only works within the same AWS region. For cross-region, set up VPC peering first.
-
-## Azure Private Link
-
-### Setup
-
-1. **Get Service Alias** from Grafana Cloud → Stack Details (one per signal type)
-2. **Create Private Endpoint** in Azure Portal:
-   - Private Endpoints → Create
-   - Resource tab → "Connect to Azure resource by resource ID or alias"
-   - Paste Service Alias from Grafana Cloud
-   - Select your VNet and subnet
-3. Wait for automatic approval (~10 minutes)
-
-```bash
-# Via Azure CLI
-az network private-endpoint create \
-  --name grafana-metrics-endpoint \
-  --resource-group myRG \
-  --vnet-name myVNet \
-  --subnet mySubnet \
-  --connection-name grafana-metrics \
-  --private-connection-resource-id "<service-alias-from-grafana-cloud>" \
-  --group-ids grafana-metrics
-```
-
-**Note:** Azure Private Link requires pre-registering your Subscription IDs with Grafana Support before setup.
-
-## GCP Private Service Connect
-
-1. **Get service attachment URI** from Grafana Cloud console
-2. **Create Private Service Connect endpoint** in GCP:
-
-```bash
-gcloud compute forwarding-rules create grafana-metrics-psc \
-  --region=us-east1 \
-  --network=my-vpc \
-  --subnet=my-subnet \
-  --address=grafana-metrics-ip \
-  --target-service-attachment=projects/grafana-cloud/regions/us-east1/serviceAttachments/metrics
-```
-
-## Private Data Source Connect (PDC)
-
-For connecting to **data sources** (databases, Prometheus, etc.) hosted in private networks, use PDC — a separate product from private telemetry ingestion:
-
-```bash
-# Install PDC agent
-helm install pdc grafana/grafana-agent \
-  --version 0.44.2 \
-  --set pdcConfig.hostedGrafanaId=<your-stack-id> \
-  --set pdcConfig.token=<pdc-token>
-```
-
-PDC creates an encrypted tunnel from Grafana Cloud back into your private network for data source queries. It's the reverse direction of PrivateLink (pull vs push).
-
-## Choosing the Right Option
+## Choosing the right option
 
 | Scenario | Solution |
 |----------|----------|
-| Push metrics/logs/traces from AWS | AWS PrivateLink |
-| Push metrics/logs/traces from Azure | Azure Private Link |
-| Push metrics/logs/traces from GCP | GCP Private Service Connect |
-| Query private DB/Prometheus from Grafana | Private Data Source Connect (PDC) |
-| On-premises with no cloud provider | Grafana Agent with TLS over internet |
+| Push from AWS | AWS PrivateLink |
+| Push from Azure | Azure Private Link |
+| Push from GCP | GCP Private Service Connect |
+| Query private DB / Prometheus from Grafana | Private Data Source Connect (PDC) — see [references/azure-gcp.md § PDC](references/azure-gcp.md#private-data-source-connect-pdc) |
 
-## Cost Savings
+## References
 
-AWS PrivateLink eliminates:
-- **$0.09/GB** cross-region data transfer (typical Grafana Cloud endpoint is in same region)
-- **$0.09/GB** internet data transfer fees
-- Potential NAT Gateway costs
-
-At 100GB/month of telemetry: ~$9-18/month savings per endpoint type.
+- [`references/aws.md`](references/aws.md) — full AWS PrivateLink Terraform per signal type + endpoint verification (state + DNS)
+- [`references/azure-gcp.md`](references/azure-gcp.md) — Azure Private Link + GCP Private Service Connect setup (Portal + CLI) + verification + Private Data Source Connect (PDC) for reverse-direction private data source queries
