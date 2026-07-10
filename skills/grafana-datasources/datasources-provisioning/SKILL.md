@@ -108,7 +108,9 @@ Worked examples live under `settingsExamples.examples`, an object keyed by scena
 
 If `schema/dsconfig.json` 404s (older plugins):
 
-- Last resort: the generic structure in [grafana-oss](../../grafana-core/grafana-oss/SKILL.md) (§ Data source provisioning) — tell the user the field names are best-effort, not plugin-authoritative.
+- Last resort: the generic structure in **grafana-oss** skill (§ Data source provisioning) can also tell the user the field names are best-effort, not plugin-authoritative.
+
+> NOTE: **grafana-oss** skill is available in `grafana-core` plugin and also available as a standalone skill from the https://github.com/grafana/skills repository
 
 ### 6. Map each field by its `target`
 
