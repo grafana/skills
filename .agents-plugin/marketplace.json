@@ -103,7 +103,7 @@
     {
       "name": "grafana-plugins",
       "source": "./",
-      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, dependency audits, and the @grafana/scenes framework",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -117,7 +117,9 @@
       "skills": [
         "./skills/grafana-plugins/plugin-bundle-size",
         "./skills/grafana-plugins/react-19-plugin-migration",
-        "./skills/grafana-plugins/grafana-scenes"
+        "./skills/grafana-plugins/grafana-scenes",
+        "./skills/grafana-plugins/check-npm",
+        "./skills/grafana-plugins/audit-and-reduce-dependencies"
       ]
     },
     {

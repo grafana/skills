@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "grafana-plugins",
-      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, dependency audits, and the @grafana/scenes framework",
       "skills": [
         {
           "name": "plugin-bundle-size",
