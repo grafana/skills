@@ -23,14 +23,14 @@ jobs:
       id-token: write   # Vault OIDC
     steps:
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Get Tessl token from Vault
         id: get-secrets
         # Tessl API token (from https://tessl.io workspace settings) maintained
         # in Grafana's dev Vault. The action no longer exports secrets as env
         # vars by default; we forward TESSL_TOKEN explicitly on the review step.
-        uses: grafana/shared-workflows/actions/get-vault-secrets@0a324424913040e0c11ee3d2dd7c969ed6dc1562 # main
+        uses: grafana/shared-workflows/actions/get-vault-secrets@e378ca000c6166a44060ed3a3c987a53da14128d # main
         with:
           vault_instance: dev
           repo_secrets: |

@@ -116,7 +116,7 @@ When you want to *know* about a label (e.g., `version`, `git_sha`, `image_tag`) 
 app_build_info{app="payment-api", version="2.4.1", git_sha="a1b2c3"} 1
 ```
 
-Then join at query time:
+Then join at query time. The classic approach is a vector match with `group_left`:
 ```promql
 sum by (version) (
   rate(http_requests_total{app="payment-api"}[5m])
@@ -125,6 +125,21 @@ sum by (version) (
 ```
 
 The `version` label lives on exactly one series per build, not on every metric.
+
+#### The `info()` function (simpler join)
+
+PromQL's `info()` function (experimental, Prometheus 3.0+; enable with `--enable-feature=promql-experimental-functions`) automates the info-metric join so you don't have to hand-write the `* on (...) group_left (...)` match:
+
+```promql
+info(
+  rate(http_requests_total{app="payment-api"}[5m]),
+  {version=~".+"}
+)
+```
+
+`info(v, [labelselector])` takes a range/instant vector `v` and, for each series, finds matching info metrics and adds their labels. The optional second argument is a label-matcher restricting which info labels are attached (here, only `version`). By default `info()` joins against the conventional `target_info` metric and matches on identifying labels (e.g. `instance`, `job`), so it's especially ergonomic for OpenTelemetry-style `target_info`. For custom info metrics like `app_build_info` the explicit `group_left` form above is still the most portable.
+
+Prefer `info()` when you're on Prometheus 3.x and joining against `target_info`; fall back to the explicit `group_left` match for older versions, custom info metrics, or when the experimental feature flag isn't enabled.
 
 ---
 

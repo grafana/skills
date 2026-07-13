@@ -30,6 +30,7 @@ claude plugin install grafana-cloud@grafana-skills
 claude plugin install grafana-lgtm@grafana-skills
 claude plugin install grafana-app-sdk@grafana-skills
 claude plugin install grafana-k6@grafana-skills
+claude plugin install grafana-datasources@grafana-skills
 ```
 
 ### Cursor
@@ -113,13 +114,15 @@ Open-source LGTM observability stack — Loki, Tempo, Prometheus/Mimir, and Pyro
 
 ### grafana-plugins
 
-Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework.
+Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, dependency audits, and the @grafana/scenes framework.
 
 | Skill | Description |
 |-------|-------------|
 | [plugin-bundle-size](skills/grafana-plugins/plugin-bundle-size) | Optimise Grafana app plugin bundle size using React.lazy, Suspense, and webpack code splitting |
 | [react-19-plugin-migration](skills/grafana-plugins/react-19-plugin-migration) | Migrate a Grafana plugin to React 19 compatibility ahead of Grafana 13 |
 | [grafana-scenes](skills/grafana-plugins/grafana-scenes) | Build Grafana plugin pages using the @grafana/scenes framework |
+| [check-npm](skills/grafana-plugins/check-npm) | Audit npm, yarn, or pnpm package manager configuration for supply-chain hardening |
+| [audit-and-reduce-dependencies](skills/grafana-plugins/audit-and-reduce-dependencies) | Reduce pnpm dependency footprint — unused deps, deduplication, transitive closure triage |
 
 ### grafana-app-sdk
 
@@ -141,7 +144,16 @@ Skills for working with k6 open-source load testing.
 | [k6](skills/grafana-k6/k6) | k6 performance and load testing — test scripts, executors, thresholds, scenarios, and k6 Cloud execution |
 | [k6-docs](skills/grafana-k6/k6-docs) | Write or review k6 documentation across TypeScript types, user docs, and release notes |
 | [k6-perf-test-website](skills/grafana-k6/k6-perf-test-website) | Performance-test a public website end-to-end with k6. Produces a hybrid protocol+browser test suite, SLO-backed thresholds, a load-generator monitor sidecar, and a Grafana-side investigation playbook |
+| [k6-manage](skills/grafana-k6/k6-manage) | Operate Grafana Cloud k6 (GCk6) via the `gcx` CLI or direct curl — manage tests, runs, scripts, schedules, and env vars; fetch logs, metrics, traces, screenshots, and Cloud Insights |
 | [k6-trend-analysis](skills/grafana-k6/k6-trend-analysis) | Analyze Grafana Cloud k6 test-run trends over time — detect metric drift, compute threshold headroom, and recommend when to tighten thresholds |
+
+### grafana-datasources
+
+Skills for working with Grafana data source plugins.
+
+| Skill                                                                          | Description                                                                  |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| [datasources-provisioning](skills/grafana-datasources/datasources-provisioning) | Authoring and schema discovery of Grafana data source plugin's configuration |
 
 ---
 
@@ -170,7 +182,8 @@ grafana-skills/
 │   ├── grafana-lgtm/
 │   ├── grafana-plugins/
 │   ├── grafana-app-sdk/
-│   └── grafana-k6/
+│   ├── grafana-k6/
+│   └── grafana-datasources/
 ├── template/SKILL.md                 # Starter template for new skills
 ├── scripts/lint-skills.sh            # Local skill validation
 └── .github/workflows/                # CI validation

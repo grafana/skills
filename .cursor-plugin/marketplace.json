@@ -29,7 +29,6 @@
         "./skills/grafana-core/dashboarding",
         "./skills/grafana-core/promql",
         "./skills/grafana-core/grafana-oss",
-        "./skills/grafana-core/datasource-provisioning",
         "./skills/grafana-core/alloy",
         "./skills/grafana-core/beyla",
         "./skills/grafana-core/opentelemetry",
@@ -104,7 +103,7 @@
     {
       "name": "grafana-plugins",
       "source": "./",
-      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, dependency audits, and the @grafana/scenes framework",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -118,7 +117,9 @@
       "skills": [
         "./skills/grafana-plugins/plugin-bundle-size",
         "./skills/grafana-plugins/react-19-plugin-migration",
-        "./skills/grafana-plugins/grafana-scenes"
+        "./skills/grafana-plugins/grafana-scenes",
+        "./skills/grafana-plugins/check-npm",
+        "./skills/grafana-plugins/audit-and-reduce-dependencies"
       ]
     },
     {
@@ -159,7 +160,23 @@
         "./skills/grafana-k6/k6-docs",
         "./skills/grafana-k6/k6",
         "./skills/grafana-k6/k6-perf-test-website",
+        "./skills/grafana-k6/k6-manage",
         "./skills/grafana-k6/k6-trend-analysis"
+      ]
+    },
+    {
+      "name": "grafana-datasources",
+      "source": "./",
+      "description": "Skills for working with Grafana data source plugins",
+      "version": "0.1.0",
+      "category": "grafana",
+      "tags": [
+        "grafana",
+        "plugins",
+        "data-sources"
+      ],
+      "skills": [
+        "./skills/grafana-datasources/datasources-provisioning"
       ]
     }
   ]
