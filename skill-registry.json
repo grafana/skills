@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "grafana-plugins",
-      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, and the @grafana/scenes framework",
+      "description": "Skills for building Grafana plugins — bundle optimisation, code splitting, React 19 migration, dependency audits, and the @grafana/scenes framework",
       "skills": [
         {
           "name": "plugin-bundle-size",
@@ -24,6 +24,18 @@
           "description": "Build Grafana plugin pages using the @grafana/scenes framework. Use when creating scene pages, adding panels, setting up drilldown navigation, defining variables, or working with SceneApp, EmbeddedScene, SceneQueryRunner, or PanelBuilders.",
           "path": "skills/grafana-plugins/grafana-scenes",
           "tags": ["plugins", "scenes", "react", "grafana-scenes", "drilldown", "panels"]
+        },
+        {
+          "name": "check-npm",
+          "description": "Audit npm, yarn, or pnpm package manager configuration for supply-chain hardening. Use when invoking /check-npm or auditing lifecycle scripts, git dependencies, ignore-scripts, or min-release-age in a Grafana plugin.",
+          "path": "skills/grafana-plugins/check-npm",
+          "tags": ["plugins", "npm", "pnpm", "supply-chain", "security", "dependencies"]
+        },
+        {
+          "name": "audit-and-reduce-dependencies",
+          "description": "Reduce JavaScript dependency footprint with pnpm — remove unused deps, dedupe versions, rank transitive closure, and report Keep/Replace/Remove triage. Use for pnpm dependency cleanup in Grafana plugins.",
+          "path": "skills/grafana-plugins/audit-and-reduce-dependencies",
+          "tags": ["plugins", "pnpm", "dependencies", "supply-chain", "lockfile", "node_modules"]
         }
       ]
     },
@@ -127,10 +139,32 @@
           "tags": ["k6", "load-testing", "performance", "browser", "slo", "grafana-cloud"]
         },
         {
+          "name": "k6-manage",
+          "description": "Operate Grafana Cloud k6 (GCk6) through the gcx CLI (or direct curl when gcx is unavailable): manage load tests, test runs, scripts, projects, schedules, and env vars; fetch logs, metrics, traces, screenshots, and Cloud Insights; and run scripts locally. Use when listing, creating, or aborting k6 cloud tests, fetching logs or metrics for a run, editing a k6 script, managing project limits or schedules, or calling the /cloud/v6, /cloud/v5, or k6-app Loki endpoints against a Grafana Cloud stack.",
+          "path": "skills/grafana-k6/k6-manage",
+          "tags": ["k6", "load-testing", "grafana-cloud", "gcx", "test-runs", "metrics", "logs"]
+        },
+        {
           "name": "k6-test-maintenance",
           "description": "Maintain and improve existing k6 test scripts. Covers threshold tightening based on trend data, version migration between k6 releases, auto-fixing tests when the underlying service changes, refactoring for cleanliness, and auditing scripts against current best practices from docs. Use when the user asks to fix a failing k6 test, tighten thresholds, migrate a script to a new k6 version, refactor a test, update a script after a service change, or improve a script with best practices. Trigger on phrases like \"fix my k6 test\", \"tighten my thresholds\", \"migrate to k6 v2\", \"update my test script\", \"refactor this k6 test\", \"my test is failing after a deploy\", \"apply best practices to my script\", \"modernize my k6 test\", or \"the service changed and my test broke\". Also trigger when another skill (k6-trend-analysis or k6-cloud-investigate-test) hands off with a recommendation to edit a script.",
           "path": "skills/grafana-k6/k6-test-maintenance",
           "tags": ["k6", "load-testing", "test-maintenance", "thresholds", "migration", "refactoring"]
+        }
+      ]
+    },
+    {
+      "name": "grafana-datasources",
+      "description": "Skills for working with Grafana data source plugins",
+      "skills": [
+        {
+          "name": "datasources-provisioning",
+          "description": "Authoring and schema discovery of Grafana data source plugin's configuration",
+          "path": "skills/grafana-datasources/datasources-provisioning",
+          "tags": [
+            "grafana",
+            "plugins",
+            "data-sources"
+          ]
         }
       ]
     }
