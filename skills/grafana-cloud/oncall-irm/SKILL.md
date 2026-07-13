@@ -1,13 +1,7 @@
 ---
 name: oncall-irm
 license: Apache-2.0
-description: >
-  Grafana OnCall and Incident Response Management (IRM) — alert routing, escalation chains,
-  on-call schedules, Jinja2 routing templates, Slack/mobile notifications, integrations
-  (Alertmanager, Grafana Alerting, webhooks, PagerDuty), and incident lifecycle management.
-  Use when setting up on-call rotations, configuring escalation policies, routing alerts to
-  the right team, declaring and managing incidents, integrating with Alertmanager or Grafana
-  Alerting, or configuring Slack-based alert workflows.
+description: Route alerts, run on-call rotations, and drive incidents in Grafana IRM / OnCall — integrations (Alertmanager / Grafana Alerting / generic webhook / PagerDuty), Jinja2 routing + grouping templates, escalation chains (wait → notify schedule → notify team → webhook → auto-resolve), schedules (web + iCal + Terraform `grafana_oncall_schedule`), Slack chatops with Acknowledge/Resolve/Silence, and the P1-P4 incident lifecycle. Use when wiring Alertmanager to OnCall, deciding which team gets paged, building rotations from a Google Calendar / iCal, hooking up Slack notifications, or declaring an incident from an alert — even when the user says "page the platform team on critical alerts", "send Prometheus alerts to Slack", "set up our on-call rota", "escalation policy", or "auto-resolve when the alert clears" without naming OnCall / IRM. Heads up — OnCall OSS is in maintenance mode (archived March 2026); Grafana Cloud users should use IRM.
 ---
 
 # Grafana OnCall & IRM
@@ -15,245 +9,110 @@ description: >
 > **OnCall docs**: https://grafana.com/docs/oncall/latest/
 > **IRM docs**: https://grafana.com/docs/grafana-cloud/alerting-and-irm/
 
-**Note:** Grafana OnCall OSS is in maintenance mode (archived March 2026). Grafana Cloud users
-should use **IRM**, which unifies OnCall + Incident management. The concepts (escalation chains,
-schedules, integrations) are identical.
+> Grafana OnCall OSS is in maintenance mode (archived March 2026). Cloud users → **IRM**. Concepts (chains, schedules, integrations) are identical.
 
-## Core Concepts
+## Prerequisites
+
+- Grafana Cloud stack with IRM/OnCall enabled
+- API token (`Authorization: <token>`)
+- Slack workspace + admin to install the OnCall app (for ChatOps)
+
+## Core concepts
 
 | Concept | Description |
 |---------|-------------|
-| **Integration** | Entry point for alerts (HTTP POST URL); one per alert source |
-| **Route** | Jinja2 condition that maps alerts to an escalation chain (first True wins) |
-| **Escalation Chain** | Ordered notification steps: wait, notify schedule, notify team, etc. |
-| **Schedule** | Calendar-based on-call rotation (web, iCal import, or Terraform) |
-| **Alert Group** | Aggregated related alerts (grouped by Grouping ID template) |
-| **Notification Policy** | Per-user delivery channels (Slack, mobile push, SMS, phone, email) |
+| **Integration** | Webhook URL accepting alerts; one per source |
+| **Route** | Jinja2 condition that maps to an escalation chain (first True wins) |
+| **Escalation Chain** | Wait / notify schedule / notify team / webhook / auto-resolve steps |
+| **Schedule** | Calendar-based rotation (web / iCal / Terraform) |
+| **Alert Group** | Related alerts collapsed by a Grouping ID template |
+| **Notification Policy** | Per-user channels — Slack, mobile push, SMS, phone, email |
 
-## Alert Processing Flow
+Flow: alert → integration → routing template → escalation chain → notifications → ack / resolve.
 
-```
-Alert arrives at Integration URL
-  → Routing template (Jinja2, first True wins) selects escalation chain
-  → Grouping ID template consolidates related alerts
-  → Escalation chain fires: wait → notify schedule → wait → notify team lead
-  → Users: acknowledge / resolve / silence from Slack, mobile, or web
-```
+## Common Workflows
 
-## Integrations
-
-### Alertmanager / Prometheus Alertmanager
+### 1. Wire Alertmanager → IRM and verify routing
 
 ```yaml
-# alertmanager.yml
+# 1. In IRM: New integration → Alertmanager. Copy the webhook URL.
+# 2. alertmanager.yml (see references/integrations.md for full block):
 receivers:
   - name: grafana-oncall
     webhook_configs:
-      - url: https://your-oncall.grafana.net/integrations/v1/alertmanager/[id]/
+      - url: https://<stack>.grafana.net/integrations/v1/alertmanager/<id>/
         send_resolved: true
-        max_alerts: 100   # prevent oversized payloads
-
-route:
-  receiver: grafana-oncall
-  group_by: [alertname, cluster]
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
+        max_alerts: 100
 ```
-
-### Grafana Alerting (same instance)
-
-1. In OnCall → Integrations → New Integration → **Grafana Alerting**
-2. Click **Quick Connect** on the integration tile — auto-creates a contact point
-3. Link the contact point to a notification policy in Grafana Alerting
-
-### Webhook (custom/generic)
 
 ```bash
-# Send alert via formatted webhook
-curl -X POST https://your-oncall.grafana.net/integrations/v1/formatted_webhook/[id]/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alert_uid": "incident-123",
-    "title": "Database CPU High",
-    "state": "alerting",
-    "message": "db-prod-01 CPU at 95% for 10 minutes",
-    "link_to_upstream_details": "https://grafana.example.com/d/abc123"
-  }'
+# 3. Test the routing template BEFORE going live (UI: Integration → Route → "Preview")
+#    Paste a sample payload (use a real Alertmanager test webhook). Expect:
+#      Routing result: True
+#      Escalation chain selected: <expected chain>
+#    If False — your Jinja expression is wrong; fix and re-preview.
 
-# Resolve the alert
-curl -X POST https://your-oncall.grafana.net/integrations/v1/formatted_webhook/[id]/ \
-  -H "Content-Type: application/json" \
-  -d '{"alert_uid": "incident-123", "state": "ok"}'
+# 4. End-to-end test — fire amtool (or any test webhook) at the URL
+amtool alert add foo severity=critical team=platform --alertmanager.url http://localhost:9093
+
+# 5. Verify in IRM → Alert Groups (should appear within ~5s) — confirm:
+#    - Correct route fired
+#    - Correct schedule/user notified
+#    - Slack message appeared in the configured channel
 ```
 
-Recognized fields: `alert_uid`, `title`, `state` (`alerting`/`ok`), `message`, `image_url`, `link_to_upstream_details`
+Routing template syntax + Jinja helpers: [`references/templates-schedules.md`](references/templates-schedules.md).
+Other integrations (Grafana Alerting, generic webhook, Slack): [`references/integrations.md`](references/integrations.md).
 
-## Routing Templates (Jinja2)
-
-Routing templates return `True` or `False` to select the escalation chain. First matching route wins.
-
-```jinja2
-{# Route critical alerts to PagerDuty escalation #}
-{{ payload.labels.severity == "critical" }}
-
-{# Route by team label #}
-{{ payload.labels.team == "platform" }}
-
-{# Route database alerts to DBA on-call #}
-{{ "database" in payload.labels.get("component", "") }}
-
-{# Default catch-all (always True) #}
-{{ true }}
-```
-
-**Grouping ID** (consolidates related alerts into one alert group):
-```jinja2
-{{ payload.labels.alertname }}-{{ payload.labels.instance }}
-```
-
-**Advanced template functions:**
-```jinja2
-{{ payload.field | b64decode }}                          # Decode base64
-{{ "pattern" | regex_match(payload.message) }}           # Regex matching
-{{ datetimeformat_as_timezone(payload.startsAt, "UTC") }} # Timezone display
-{{ payload.values | tojson_pretty }}                     # Pretty-print JSON
-```
-
-## Escalation Chains
-
-Configure at **OnCall → Escalation Chains → Create**:
+### 2. Build an escalation chain + verify
 
 ```
-Step 1: Notify users from schedule "Primary On-Call" (Important Notifications)
-Step 2: Wait 5 minutes
-Step 3: Notify users from schedule "Primary On-Call" (Default Notifications)
-Step 4: Wait 10 minutes
-Step 5: Notify whole team "Platform"
-Step 6: Trigger webhook (PagerDuty, ticket system, etc.)
+1. Notify "Primary On-Call" (Important Notifications)
+2. Wait 5 min
+3. Notify "Primary On-Call" (Default Notifications)
+4. Wait 10 min
+5. Notify team "Platform"
+6. Trigger outgoing webhook (PagerDuty / ticket)
 ```
-
-**Step types:**
-- **Wait** — pause N minutes before next step
-- **Notify users from schedule** — alerts whoever is currently on-call
-- **Notify team** — alerts all members of a team
-- **Notify users** — alerts specific named users
-- **Trigger outgoing webhook** — call external system
-- **Auto-resolve** — mark alert group resolved after N minutes
-- **Round-robin** — rotate through a list of users
-
-## On-Call Schedules
-
-### Web-based (UI)
-
-Create rotations with shifts, overrides, and gaps directly in the OnCall/IRM UI.
-
-### iCal Import
 
 ```bash
-# API: create schedule from iCal
-curl -X POST https://your-oncall.grafana.net/api/v1/schedules/ \
-  -H "Authorization: your-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Platform On-Call",
-    "ical_url_primary": "https://calendar.example.com/platform-oncall.ics",
-    "ical_url_overrides": "https://calendar.example.com/overrides.ics",
-    "slack": {
-      "channel_id": "C123456ABC",
-      "user_group_id": "S123456ABC"
-    }
-  }'
+# Verify: create a test alert (UI → Integration → "Send demo alert"),
+# then watch the alert-group timeline tick through steps 1 → 6.
+# Use IRM → Escalation Chains → "Test" if available, otherwise the demo alert is the canonical check.
 ```
 
-### Terraform
-
-```hcl
-resource "grafana_oncall_schedule" "platform" {
-  name = "Platform On-Call"
-  type = "calendar"
-
-  shifts = [
-    grafana_oncall_on_call_shift.weekday.id,
-    grafana_oncall_on_call_shift.weekend.id,
-  ]
-}
-
-resource "grafana_oncall_on_call_shift" "weekday" {
-  name       = "Weekday"
-  type       = "rolling_users"
-  start      = "2024-01-01T09:00:00"
-  duration   = 3600 * 8    # 8 hours
-  frequency  = "weekly"
-  users_per_slot = 1
-  rolling_users  = [["user-id-1"], ["user-id-2"], ["user-id-3"]]
-}
-```
-
-## Slack Integration
-
-1. **Install**: OnCall Settings → Chat Ops → Slack → Install Slack Integration
-2. **Connect users**: Each user: Profile → Connect to Slack
-3. **Set default channel**: for alert routing
-4. **Add to escalation**: "Notify by Slack mentions" step in escalation chain
-
-Slack actions on alert messages: **Acknowledge**, **Resolve**, **Silence**, **Add responders**, **Add note**
-
-Slash commands: `/escalate`, `/oncall`
-
-## API Reference
-
-Base URL: `https://your-oncall.grafana.net/api/v1/`
+### 3. Create a schedule from iCal + verify "who is on-call right now"
 
 ```bash
-TOKEN=your-api-key
+# 1. Create the schedule
+curl -X POST https://<stack>.grafana.net/api/v1/schedules/ \
+  -H "Authorization: <token>" -H "Content-Type: application/json" \
+  -d '{"name":"Platform On-Call",
+       "ical_url_primary":"https://calendar.example.com/platform.ics",
+       "slack":{"channel_id":"C123456ABC","user_group_id":"S123456ABC"}}'
 
-# List integrations
-curl "$BASE/integrations/" -H "Authorization: $TOKEN"
+# 2. Verify the schedule was created
+curl -s https://<stack>.grafana.net/api/v1/schedules/ \
+  -H "Authorization: <token>" | jq '.results[] | select(.name=="Platform On-Call")'
 
-# Create escalation chain
-curl -X POST "$BASE/escalation_chains/" \
-  -H "Authorization: $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Platform Critical", "team_id": "team-id"}'
-
-# List schedules
-curl "$BASE/schedules/" -H "Authorization: $TOKEN"
-
-# List alert groups
-curl "$BASE/alert_groups/?page=1&perpage=25" -H "Authorization: $TOKEN"
-
-# Who is on-call right now
-curl "$BASE/schedules/{schedule_id}/next_shifts/" -H "Authorization: $TOKEN"
+# 3. Verify who is on-call right now
+curl -s https://<stack>.grafana.net/api/v1/schedules/<schedule_id>/next_shifts/ \
+  -H "Authorization: <token>" | jq '.results[0]'
+# Expect a shift starting now (or recently) with the right user_id.
 ```
 
-**Rate limits:** 300 alerts/integration per 5 min, 500 alerts/org per 5 min, 300 API requests/key per 5 min
+Terraform variant + shift block: [`references/templates-schedules.md`](references/templates-schedules.md).
 
-## Incident Management (IRM)
+## Best practices
 
-When an alert group becomes an incident:
-
-1. **Declare incident**: From alert group → "Declare Incident" or via Slack `/incident declare`
-2. **Set severity**: P1–P4
-3. **Add responders**: Page additional team members
-4. **Update status**: Investigating → Identified → Monitoring → Resolved
-5. **Timeline**: Auto-tracks all actions; add manual notes
-6. **Postmortem**: Auto-generated draft from timeline on resolution
-
-## RBAC Roles
-
-| Role | Access |
-|------|--------|
-| `oncall-admin` | Full access to all OnCall resources |
-| `oncall-editor` | Create/edit integrations, schedules, escalation chains |
-| `oncall-viewer` | Read-only |
-| `oncall-notifications-receiver` | Receive alerts; cannot modify configuration |
-
-## Rate Limits & Best Practices
-
-- Keep escalation chains short (≤4 levels) with a definitive final step
-- Set `send_resolved: true` in Alertmanager for auto-resolution
+- Keep chains ≤4 levels with a definitive final step (webhook to PagerDuty or auto-resolve)
+- Always set `send_resolved: true` in Alertmanager so OnCall auto-resolves
 - Use `max_alerts: 100` in Alertmanager webhook config
-- Test routes with the template editor before going live
-- Combine Slack + mobile push for notification reliability
-- Assign integrations/schedules to teams for access control
+- Combine Slack + mobile push for delivery reliability
+- Assign integrations/schedules to teams for RBAC
+
+## Resources
+
+- [OnCall API](https://grafana.com/docs/oncall/latest/oncall-api-reference/)
+- [IRM docs](https://grafana.com/docs/grafana-cloud/alerting-and-irm/)
+- [Routing template helpers](https://grafana.com/docs/oncall/latest/configure/jinja2-template-functions/)

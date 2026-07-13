@@ -1,492 +1,146 @@
 ---
 name: app-observability
 license: Apache-2.0
-description: >
-  Grafana Cloud Application Observability (APM), Frontend Observability (RUM/Faro), and AI Observability.
-  Covers RED metrics (Rate/Error/Duration), service maps, span metrics from traces, Faro JavaScript/React
-  SDK for browser instrumentation, session replay, AI/LLM model monitoring, and integration with
-  traces/logs/profiles for full-stack correlation. Use when setting up APM, configuring frontend monitoring,
-  analyzing service performance, or monitoring AI/LLM applications.
+description: Get RED metrics + service maps + frontend RUM + AI/LLM monitoring out of Grafana Cloud — Application Observability (`traces_spanmetrics_*` from OTel traces, p50/p95/p99 latency, exemplar-to-trace, traces-to-logs / profiles), Frontend Observability with the Faro Web SDK (Core Web Vitals, session replay, `pushError`, React + router integration, `TracingInstrumentation` for browser → backend trace correlation), and AI Observability via OpenLIT (token / cost / latency, GPU, hallucination + toxicity evals). Use when standing up APM for a service, wiring an Alloy OTLP receiver + forwarding to Cloud, instrumenting a React frontend for RUM, debugging why service-map edges are missing, monitoring LLM cost drift, or correlating a frontend error to its backend trace — even when the user says "set up APM", "show service map", "monitor browser perf", "session replay", "RUM SDK", or "watch our OpenAI bill" without naming App / Frontend / AI Observability.
 ---
 
-# Grafana Cloud Application Observability Skill
+# Grafana Cloud Application Observability
 
-## Overview
+> **Docs**: https://grafana.com/docs/grafana-cloud/monitor-applications/
 
-Grafana Cloud provides three tightly related application monitoring products:
+Three products that share the same OTLP + Mimir / Loki / Tempo / Pyroscope plumbing:
 
-1. **Application Observability (APM)** - RED metrics from OTel traces, service inventory, service maps
-2. **Frontend Observability** - RUM/Faro SDK for browser apps, session replay, web vitals
-3. **AI Observability** - LLM/model monitoring via OpenLIT + OTel, token/cost/latency metrics
+1. **Application Observability** — APM from OTel spanmetrics
+2. **Frontend Observability** — Faro Web SDK, RUM + session replay
+3. **AI Observability** — LLM / vector-DB monitoring via OpenLIT
 
-All three integrate with Grafana Tempo (traces), Loki (logs), and Pyroscope (profiles) for full-stack correlation.
+## Prerequisites
 
----
+- Grafana Cloud stack + OTLP endpoint + numeric instance ID + API key with `MetricsPublisher` + `LogsPublisher` + `TracesPublisher`
+- For APM: app instrumented with OTel SDK; for Frontend: a web app + Faro app key; for AI: Python ≥ 3.10
+- Grafana Alloy as the local OTLP receiver (recommended)
 
-## Application Observability (APM)
+## Common Workflows
 
-### What It Is
-
-Application Observability is a pre-built APM experience in Grafana Cloud built on top of OpenTelemetry. It generates RED (Rate, Error, Duration) metrics from distributed traces via span metrics, then surfaces them in:
-
-- **Service Inventory** - table of all services with RED metrics at a glance
-- **Service Overview** - per-service RED metrics, top operations, error breakdown
-- **Service Map** - node graph of service dependencies with flow visualization
-- **Operations view** - per-endpoint RED metrics with p50/p95/p99 latency
-
-### How Metrics Are Generated
-
-Application Observability does NOT rely on traditional Prometheus scraping. Metrics come from **span metrics** - aggregations computed from OTel trace data:
-
-- Source: OTel traces sent to Grafana Tempo or Grafana Alloy
-- Generation method: Tempo's metrics-generator OR the `spanmetrics` connector in Alloy/OTel Collector
-- Result: Prometheus-compatible metrics stored in Grafana Mimir
-
-Key generated metric names:
-- Via Tempo metrics-generator: `traces_spanmetrics_calls_total`, `traces_spanmetrics_duration_seconds`
-- Via OTel Collector spanmetrics connector: `traces_span_metrics_calls_total`, `traces_span_metrics_duration_seconds`
-
-### Required OTel Resource Attributes
-
-These attributes MUST be present on all spans for Application Observability to work:
-
-| Attribute | Grafana Label | Purpose |
-|---|---|---|
-| `service.name` | `service_name` / part of `job` | Identifies the service |
-| `service.namespace` | part of `job` label | Groups services; `job = namespace/service.name` |
-| `deployment.environment` | `deployment_environment` | Env filter (prod/dev/staging) |
-
-The `job` label is constructed as:
-- `service.namespace/service.name` when namespace is set
-- `service.name` alone when no namespace
-
-Additional recommended attributes:
-- `service.version` - shown in service overview
-- `k8s.cluster.name` - for K8s environments
-- `k8s.namespace.name` - Kubernetes namespace
-- `cloud.region` - for multi-region setups
-
-### Setting Environment Variables for OTel SDK
+### 1. Stand up APM — Alloy receiver → Grafana Cloud + verify
 
 ```bash
+# 1. Set Cloud creds + start Alloy with config from references/apm.md
+export GRAFANA_CLOUD_OTLP_ENDPOINT=https://otlp-gateway-prod-us-east-0.grafana.net/otlp
+export GRAFANA_CLOUD_INSTANCE_ID=123456
+export GRAFANA_CLOUD_API_KEY=glc_eyJ...
+alloy fmt /etc/alloy/config.alloy   # syntax check
+alloy run /etc/alloy/config.alloy
+
+# 2. Verify Alloy is receiving + forwarding
+curl -s http://localhost:12345/api/v0/web/components \
+  | jq '.[] | select(.id|test("otelcol\\.exporter\\.otlphttp"))
+        | {id, health:.health.state}'
+# Expect health.state == "healthy"
+curl -s http://localhost:12345/metrics \
+  | grep -E 'otelcol_(receiver_accepted_spans|exporter_sent_spans)'
+
+# 3. Point your app at Alloy (with required attributes!)
 export OTEL_SERVICE_NAME="my-api"
-export OTEL_RESOURCE_ATTRIBUTES="service.namespace=myteam,deployment.environment=production,service.version=1.2.3"
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+export OTEL_RESOURCE_ATTRIBUTES="service.namespace=myteam,deployment.environment=production"
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+
+# 4. Verify spans landed in Tempo + spanmetrics generated
+#    Tempo (TraceQL):  { resource.service.name = "my-api" }
+#    Mimir (PromQL):   sum by (job) (rate(traces_spanmetrics_calls_total{service_name="my-api"}[5m]))
+#    Expect > 0 within ~1 minute.
+
+# 5. Verify it's wired to App Observability
+#    Grafana → Application → Service Inventory: "my-api" should appear with RED metrics
+#    Click into it → Service Map edges visible (requires span.kind on outbound calls)
 ```
 
-### Grafana Alloy Configuration (River syntax)
+Full Alloy block + required resource attributes + spanmetric names + correlation links: [`references/apm.md`](references/apm.md).
 
-Alloy acts as a local OTel Collector and forwards data to Grafana Cloud:
-
-```river
-// Receive traces, metrics, logs from instrumented apps
-otelcol.receiver.otlp "default" {
-  grpc {
-    endpoint = "0.0.0.0:4317"
-  }
-  http {
-    endpoint = "0.0.0.0:4318"
-  }
-  output {
-    metrics = [otelcol.processor.resourcedetection.default.input]
-    logs    = [otelcol.processor.resourcedetection.default.input]
-    traces  = [otelcol.processor.resourcedetection.default.input]
-  }
-}
-
-// Auto-detect host/cloud metadata
-otelcol.processor.resourcedetection "default" {
-  detectors = ["env", "system", "gcp", "aws", "azure"]
-  output {
-    metrics = [otelcol.processor.batch.default.input]
-    logs    = [otelcol.processor.batch.default.input]
-    traces  = [otelcol.processor.batch.default.input]
-  }
-}
-
-// Batch for efficiency
-otelcol.processor.batch "default" {
-  output {
-    metrics = [otelcol.exporter.otlphttp.grafana_cloud.input]
-    logs    = [otelcol.exporter.otlphttp.grafana_cloud.input]
-    traces  = [otelcol.exporter.otlphttp.grafana_cloud.input]
-  }
-}
-
-// Auth
-otelcol.auth.basic "grafana_cloud" {
-  username = env("GRAFANA_CLOUD_INSTANCE_ID")
-  password = env("GRAFANA_CLOUD_API_KEY")
-}
-
-// Export to Grafana Cloud OTLP endpoint
-otelcol.exporter.otlphttp "grafana_cloud" {
-  client {
-    endpoint = env("GRAFANA_CLOUD_OTLP_ENDPOINT")
-    auth     = otelcol.auth.basic.grafana_cloud.handler
-  }
-}
-```
-
-Required environment variables for Alloy:
-```bash
-GRAFANA_CLOUD_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp
-GRAFANA_CLOUD_INSTANCE_ID=<your-instance-id>
-GRAFANA_CLOUD_API_KEY=<your-api-key>
-```
-
-### Service Map
-
-The Service Map uses Tempo's **metrics-generator** to produce service graph metrics:
-- Node graph shows services as nodes, HTTP/gRPC calls as edges
-- Edge thickness indicates request rate; color indicates error rate
-- Clicking a node navigates to Service Overview
-- Requires `span.kind` (CLIENT/SERVER) on spans for directional edges
-
-Enable in Tempo (managed by Grafana Cloud automatically):
-- `service-graphs` metrics generator enabled by default in Grafana Cloud Tempo
-- Uses `traces_service_graph_request_total`, `traces_service_graph_request_failed_total` metrics
-
-### Integration with Traces, Logs, Profiles
-
-Application Observability provides one-click correlation:
-- **Traces**: Click any metric spike to open exemplar traces in Grafana Tempo
-- **Logs**: Service logs shown in Service Overview; correlated via `service.name` label
-- **Profiles**: "Go to profiles" button in Service Overview when Pyroscope is configured
-- **Frontend**: Link from Application Observability to Frontend Observability for the same service
-
----
-
-## Frontend Observability (Faro)
-
-### What It Is
-
-Grafana Faro is an open-source JavaScript/TypeScript SDK for **Real User Monitoring (RUM)**. It instruments browser applications to capture:
-
-- **Web vitals**: Core Web Vitals (LCP, CLS, INP) and additional performance metrics
-- **Errors**: Unhandled exceptions, rejected promises with stack traces
-- **Sessions**: User journeys, page views, navigation timing
-- **Logs**: Custom log messages from frontend code
-- **Traces**: Distributed traces via OpenTelemetry-JS (correlates with backend spans)
-- **Session replay**: Rrweb-based DOM recording for reproducing user issues
-
-Data flows: Faro SDK -> Grafana Alloy (faro receiver) OR Grafana Cloud OTLP endpoint -> Loki (logs) + Tempo (traces) + Mimir (metrics)
-
-### Faro SDK Packages
-
-```
-@grafana/faro-core          # Core SDK - signals, transports, API
-@grafana/faro-web-sdk       # Web instrumentations + transports
-@grafana/faro-web-tracing   # OpenTelemetry-JS distributed tracing
-@grafana/faro-react         # React-specific integrations (error boundary, router)
-```
-
-### Basic JavaScript Setup (npm)
+### 2. Instrument a React frontend with Faro
 
 ```bash
-npm install @grafana/faro-web-sdk
-# or
-yarn add @grafana/faro-web-sdk
-```
-
-```javascript
-import {
-  initializeFaro,
-  getWebInstrumentations,
-} from '@grafana/faro-web-sdk';
-
-const faro = initializeFaro({
-  url: 'https://faro-collector-prod-<region>.grafana.net/collect/<app-key>',
-  app: {
-    name: 'my-frontend-app',
-    version: '1.0.0',
-    environment: 'production',
-  },
-  instrumentations: [
-    ...getWebInstrumentations({
-      captureConsole: true,
-    }),
-  ],
-});
-
-// Manual API usage
-faro.api.pushLog(['User clicked checkout button']);
-faro.api.pushError(new Error('Payment failed'));
-faro.api.pushEvent('button_click', { button: 'checkout' });
-```
-
-### CDN Setup (no bundler)
-
-```html
-<script src="https://unpkg.com/@grafana/faro-web-sdk@latest/dist/library/faro-web-sdk.iife.js"></script>
-<script>
-  const { initializeFaro, getWebInstrumentations } = GrafanaFaroWebSdk;
-
-  initializeFaro({
-    url: 'https://faro-collector-prod-<region>.grafana.net/collect/<app-key>',
-    app: { name: 'my-app', version: '1.0.0' },
-    instrumentations: [...getWebInstrumentations()],
-  });
-</script>
-```
-
-### React Setup with Tracing
-
-```bash
+# 1. Install
 npm install @grafana/faro-react @grafana/faro-web-tracing
 ```
 
 ```javascript
-import { initializeFaro, getWebInstrumentations } from '@grafana/faro-web-sdk';
-import { TracingInstrumentation } from '@grafana/faro-web-tracing';
-import {
-  createReactRouterV6DataOptions,
-  ReactIntegration,
-  withFaroRouterInstrumentation,
-} from '@grafana/faro-react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-
-const faro = initializeFaro({
-  url: 'https://faro-collector-prod-<region>.grafana.net/collect/<app-key>',
-  app: {
-    name: 'my-react-app',
-    version: '1.0.0',
-    environment: 'production',
-  },
-  instrumentations: [
-    ...getWebInstrumentations({ captureConsole: true }),
-    new TracingInstrumentation(),
-    new ReactIntegration({
-      router: createReactRouterV6DataOptions({}),
-    }),
-  ],
-});
-
-const router = withFaroRouterInstrumentation(
-  createBrowserRouter([
-    { path: '/', element: <Home /> },
-    { path: '/about', element: <About /> },
-  ])
-);
-
-function App() {
-  return <RouterProvider router={router} />;
-}
+// 2. initializeFaro with TracingInstrumentation + ReactIntegration (see references/faro.md)
+//    Push a smoketest event so we have a known signal:
+faro.api.pushEvent('faro_smoketest', { ts: Date.now().toString() });
 ```
-
-### Session Configuration
-
-```javascript
-initializeFaro({
-  url: '...',
-  app: { name: 'my-app' },
-  sessionTracking: {
-    enabled: true,
-    persistent: true,
-    maxSessionPersistenceTime: 4 * 60 * 60 * 1000, // 4 hours in ms
-    samplingRate: 1,           // 1 = 100%, 0.5 = 50% of sessions
-    onSessionChange: (oldSession, newSession) => {
-      console.log('Session changed', newSession.id);
-    },
-  },
-  instrumentations: [...getWebInstrumentations()],
-});
-```
-
-### Getting the Collector URL
-
-1. In Grafana Cloud, go to **Connections** (left menu) > search "Frontend Observability"
-2. Click the Frontend Observability card
-3. Navigate to **Web SDK Configuration** tab
-4. Copy the `url` value - this is your unique collector endpoint
-5. Paste into your `initializeFaro({ url: '...' })` call
-
-### What Faro Captures Automatically
-
-When using `getWebInstrumentations()`:
-- Page views and navigation timing
-- Core Web Vitals (LCP, CLS, INP - replaces FID in Faro v2)
-- JavaScript errors and unhandled rejections
-- Console errors/warnings (when `captureConsole: true`)
-- Resource loading performance
-- User interactions (clicks, form events)
-- Fetch/XHR request timing
-
-### Correlation with Backend Traces
-
-When `TracingInstrumentation` is included, Faro:
-- Injects `traceparent` / `tracestate` headers into outgoing fetch/XHR requests
-- Creates spans for each HTTP call
-- Links browser session to backend traces in Tempo
-- Enables "Frontend to Backend" trace waterfall in Grafana
-
----
-
-## AI Observability
-
-### What It Is
-
-AI Observability monitors generative AI and LLM applications in production. Built on OTel GenAI semantic conventions and the **OpenLIT** instrumentation library.
-
-Monitors:
-- LLM API calls (OpenAI, Anthropic, Cohere, Google, etc.)
-- Vector databases (Pinecone, Weaviate, Chroma, etc.)
-- AI frameworks (LangChain, CrewAI, LlamaIndex)
-- Model Context Protocol (MCP) servers
-- GPU utilization
-- AI evaluation quality (hallucination, toxicity, bias)
-
-### Key Metrics (OTel GenAI Semantic Conventions)
-
-| Metric | Description |
-|---|---|
-| `gen_ai_usage_input_tokens_total` | Total input/prompt tokens consumed |
-| `gen_ai_usage_output_tokens_total` | Total output/completion tokens consumed |
-| `gen_ai_usage_cost_USD_sum` | Total cost in USD |
-| `gen_ai_client_operation_duration` | Latency per LLM call (histogram) |
-| `gen_ai_client_token_usage` | Token usage histogram |
-
-Trace spans capture:
-- Model name (`gen_ai.request.model`)
-- Temperature, top_p parameters
-- Full prompts and completions (configurable)
-- Provider (`gen_ai.system`: `openai`, `anthropic`, etc.)
-- Time to first token (TTFT)
-
-### Python Setup with OpenLIT
 
 ```bash
-pip install openlit==1.42.0 openai==2.41.0 anthropic==0.105.2 cohere==7.0.3
+# 3. Verify in DevTools Network — POST to /collect returns 202
+#    (401 → wrong app key; 404 → wrong url region)
+
+# 4. Verify in Grafana Cloud
+#    - Frontend Observability → your app → Sessions: your session appears
+#    - LogQL on Loki: {kind="event"} |= "faro_smoketest"
+#    - With TracingInstrumentation: open the session → the trace ID links to Tempo
+```
+
+Full React example, CDN setup, session config: [`references/faro.md`](references/faro.md).
+
+### 3. Add AI / LLM observability
+
+```bash
+pip install openlit==1.42.0
 ```
 
 ```python
+# At app startup
 import openlit
-import openai
-
-# One-line initialization - auto-instruments all supported LLM libraries
-openlit.init()
-
-# Optional parameters
-openlit.init(
-    application_name="my-ai-app",
-    environment="production",
-)
-
-# Your existing code works unchanged - OpenLIT intercepts all LLM calls
-client = openai.OpenAI()
-response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
+openlit.init(application_name="my-ai-app", environment="production")
+# Your existing OpenAI / Anthropic / Cohere calls now emit OTel spans + metrics.
 ```
-
-### OTel Environment Variables
 
 ```bash
+# Env (same OTLP endpoint as APM)
 export OTEL_SERVICE_NAME="my-ai-app"
-export OTEL_DEPLOYMENT_ENVIRONMENT="production"
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-<region>.grafana.net/otlp"
-# Base64 encode "instanceID:apiToken"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <base64-encoded-instanceid:apitoken>"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic $(echo -n $ID:$KEY | base64)"
+
+# Verify after a few LLM calls:
+#   PromQL: sum by (gen_ai_request_model) (rate(gen_ai_usage_input_tokens_total[5m]))
+#   Dashboard: Grafana → AI Observability → "GenAI Observability" auto-populates
 ```
 
-To get the credentials:
-1. In Grafana Cloud, go to **My Account** > **Stack** > **OpenTelemetry**
-2. Generate a token and copy the OTLP endpoint
+Full OpenLIT install, evals/guards, GenAI metric list, dashboard names: [`references/ai-observability.md`](references/ai-observability.md).
 
-### AI Evaluations and Guards
+## Full-stack correlation cheat sheet
 
-```python
-# Hallucination detection
-evals = openlit.evals.Hallucination(
-    provider="openai",
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-result = evals.measure(
-    prompt=user_message,
-    contexts=["Your knowledge base content here"],
-    text=llm_answer
-)
-
-# Content safety guard
-guard = openlit.guard.All(
-    provider="openai",
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-guard.detect(text=user_message)
-```
-
-### Prebuilt Dashboards
-
-Once metrics arrive, Grafana Cloud auto-populates five dashboards:
-1. **GenAI Observability** - request rates, latency percentiles, costs
-2. **GenAI Evaluations** - hallucination, bias, toxicity scores
-3. **Vector Database Observability** - query latency, index ops
-4. **MCP Observability** - tool call rates, errors
-5. **GPU Monitoring** - utilization, memory, temperature
-
-### Setup Path
-
-1. In Grafana Cloud: **Connections** > search "AI Observability" > click the card
-2. Follow the UI wizard to get your OTLP endpoint and API key
-3. Set the environment variables
-4. `pip install openlit==1.42.0` and call `openlit.init()` at app startup
-5. Deploy - dashboards populate automatically within minutes
-
----
-
-## Full-Stack Correlation Summary
-
-| Signal | Product | Storage | Query Language |
+| Signal | Product | Storage | Query |
 |---|---|---|---|
-| Metrics (RED) | App Observability | Mimir | PromQL |
+| RED metrics | App Observability | Mimir | PromQL |
 | Traces | Tempo | Tempo | TraceQL |
 | Logs | Loki | Loki | LogQL |
-| Profiles | Pyroscope | Pyroscope | - |
-| Browser RUM | Faro/Frontend Obs | Loki + Tempo | - |
+| Profiles | Pyroscope | Pyroscope | ProfileQL |
+| Browser RUM | Frontend Observability | Loki + Tempo | LogQL / TraceQL |
 | LLM metrics | AI Observability | Mimir | PromQL |
 
-Correlation keys:
-- `service.name` / `service_name` links all signals for a service
-- Trace exemplars embed trace IDs in metric data points (RED metrics -> traces)
-- `traceID` in logs enables log-to-trace correlation
-- `profileID` / time range enables trace-to-profile correlation
-- Faro injects `traceparent` headers to link browser sessions to backend traces
+Correlation keys: `service.name` joins all signals; trace exemplars embed trace IDs in metric points; `traceID` in logs and `traceparent` injected by Faro for FE → BE linking.
 
----
+## Troubleshooting
 
-## Common Tasks
-
-### Find Why a Service Has High Latency
-
-1. **App Observability** > Service Inventory > click service
-2. In Service Overview: check p95/p99 latency trend in Operations panel
-3. Click a high-latency operation > "View traces" to open exemplar traces in Tempo
-4. In Tempo trace: use "Go to profiles" to see CPU profile at that time
-5. Check correlated logs in the Logs panel of Service Overview
-
-### Debug a Frontend Error
-
-1. **Frontend Observability** > Errors panel > click error
-2. View stack trace, browser, OS, session info
-3. Click "View session replay" to see what the user did
-4. Check correlated backend trace if `TracingInstrumentation` is configured
-
-### Monitor LLM Cost Drift
-
-1. **AI Observability** dashboard > GenAI Observability
-2. Use `gen_ai_usage_cost_USD_sum` metric to see cost by model/provider
-3. Set alert on cost threshold or token usage spike
-4. Drill into traces to see which prompts are consuming the most tokens
-
----
+- Service missing from Service Inventory → missing `service.namespace` (job label) or `deployment.environment` resource attribute
+- Service Map edges missing → `span.kind` not set on outbound calls (must be CLIENT) or inbound (SERVER)
+- Faro `/collect` returns 401 → wrong app key; 404 → region in URL doesn't match the Faro app
+- No GenAI metrics → confirm OpenLIT version matches OTel semantic-conv version expected by Cloud; verify auth with curl as in workflow #3
 
 ## References
 
-- App Observability docs: https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/
-- Frontend Observability docs: https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/
-- Faro Web SDK GitHub: https://github.com/grafana/faro-web-sdk
-- AI Observability docs: https://grafana.com/docs/grafana-cloud/monitor-applications/ai-observability/
-- Alloy for App Observability: https://grafana.com/docs/opentelemetry/collector/grafana-alloy/
-- OpenLIT: https://openlit.io/
+- [`references/apm.md`](references/apm.md) — APM essentials: how RED metrics are generated, required OTel resource attributes, Alloy config, correlation links
+- [`references/apm-setup.md`](references/apm-setup.md) — deep dive: full per-language OTel SDK setup (Node / Python / Java / Go), span-metrics options, complete Alloy config
+- [`references/faro.md`](references/faro.md) — Faro essentials: SDK init, instrumentations, session replay
+- [`references/frontend-observability.md`](references/frontend-observability.md) — deep dive: full Faro SDK reference, React/Vue/Angular integration, custom events, source maps
+- [`references/ai-observability.md`](references/ai-observability.md) — OpenLIT auto-instrumentation for OpenAI / Anthropic / Bedrock / Vertex AI
+
+## Resources
+
+- [App Observability docs](https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/)
+- [Frontend Observability docs](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/)
+- [Faro Web SDK](https://github.com/grafana/faro-web-sdk)
+- [AI Observability docs](https://grafana.com/docs/grafana-cloud/monitor-applications/ai-observability/)
+- [OpenLIT](https://openlit.io/)

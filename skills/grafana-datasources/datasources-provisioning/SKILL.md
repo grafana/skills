@@ -1,5 +1,5 @@
 ---
-name: datasource-provisioning
+name: datasources-provisioning
 license: Apache-2.0
 description: Generate a copy-paste Grafana data source provisioning file (YAML or Terraform) for any plugin from its standardized settings schema on the plugins CDN. Use when the user wants to provision or configure a data source as code — e.g. "provision infinity", "datasource yaml for clickhouse", "terraform for the github datasource" — even when they only name the plugin and not the word "provisioning".
 ---
@@ -107,7 +107,10 @@ Worked examples live under `settingsExamples.examples`, an object keyed by scena
 ### 5. Fallback when no schema is published
 
 If `schema/dsconfig.json` 404s (older plugins):
-- Last resort: the generic structure in [grafana-oss](../grafana-oss/SKILL.md) (§ Data source provisioning) — tell the user the field names are best-effort, not plugin-authoritative.
+
+- Last resort: the generic structure in **grafana-oss** skill (§ Data source provisioning) can also tell the user the field names are best-effort, not plugin-authoritative.
+
+> NOTE: **grafana-oss** skill is available in `grafana-core` plugin and also available as a standalone skill from the https://github.com/grafana/skills repository
 
 ### 6. Map each field by its `target`
 
@@ -212,4 +215,4 @@ To codify a data source already configured in a running instance, read its confi
 
 ## Related
 
-- [grafana-oss](../grafana-oss/SKILL.md) — generic data source / dashboard provisioning structure and provisioning paths.
+- [grafana-oss](../../grafana-core/grafana-oss/SKILL.md) — generic data source / dashboard provisioning structure and provisioning paths.
