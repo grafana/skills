@@ -63,7 +63,7 @@ For each label, ask:
 
 ## Evaluation Output Format
 
-When auditing a label set, produce a report in this structure. Every audit report **must** start with the Disclaimer (verbatim), and **must** include Cost Impact Analysis when Grafana Cloud usage metrics are available; if they are not, state what is missing and still give qualitative A/B/C guidance (see [Cost Impact Analysis](#cost-impact-analysis)).
+When auditing a label set, produce a report in this structure. Every audit report **must** start with the Disclaimer (verbatim), and **must** include Cost Impact Analysis when Grafana Cloud usage metrics are available; if they are not, state what is missing and still give qualitative A/B/C guidance. Load [references/cost-impact.md](references/cost-impact.md) when filling that section.
 
 ```
 ## Loki Label Strategy Audit
@@ -404,74 +404,7 @@ stage.labels { values = { team = "" } }
 
 ## Log Line Optimization
 
-These reduce storage costs. Establish a cost-per-GB baseline before implementing.
-
-### Remove Timestamps from Log Lines
-
-Each log entry already has a metadata timestamp — the inline timestamp is redundant (~30–34 bytes each, ~6% of a typical log line).
-
-```alloy
-loki.process "drop_timestamp" {
- forward_to = [...]
- // logfmt timestamps
- stage.replace {
- expression = "(?i)((?:time_?(?:stamp)?|ts|logdate|start_?time)=[^ \\n]+(?: |$))"
- replace = " "
- }
- // JSON timestamps
- stage.replace {
- expression = "(\"@?(?:time_?(?:stamp)?|ts|logdate|start_?time)\"\\s*:\\s*\"[^\"]+\",?)"
- replace = " "
- }
- // ISO-8601 at start of line
- stage.replace {
- expression = "^(\\d{4}-\\d{2}-\\d{2})T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?Z?)?"
- replace = ""
- }
-}
-```
-
-The original timestamp is still accessible at query time: `| line_format '{{ __timestamp__ | date "2006-01-02T15:04:05Z" }}'`
-
-### Remove ANSI Color Codes
-
-```alloy
-loki.process "decolorize" {
- forward_to = [...]
- stage.decolorize {}
-}
-```
-
-### Remove Duplicate Level Field (when `level` is already a label)
-
-```alloy
-stage.replace { expression = "(level=[^ ]+ )"; replace = "" }
-```
-
-### JSON Optimizations
-
-```alloy
-// Remove null values
-stage.replace {
- expression = "(\\s*(\"[^\"]+\"\\s*:\\s*null)(?:\\s*,)?\\s*)"
- replace = ""
-}
-
-// Remove placeholder values ("-", "undefined", "null" strings)
-stage.replace {
- expression = "(\\s*(\"[^\"]+\"\\s*:\\s*\"(?:-|null|undefined)\")(?:\\s*,)?\\s*)"
- replace = ""
-}
-
-// Remove empty values ("", [], {})
-stage.replace {
- expression = "(\\s*,\\s*(\"[^\"]+\"\\s*:\\s*(\\[\\s*\\]|\\{\\s*\\}|\"\\s*\"))|(\"[^\"]+\"\\s*:\\s*(\\[\\s*\\]|\\{\\s*\\}|\"\\s*\"))\\s*,\\s*)"
- replace = ""
-}
-```
-
-**Practical savings** (Istio access log example):
-Starting at 753 bytes (minified) → after removing nulls, placeholders, unused fields, normalizing keys: **464 bytes — 38% reduction**.
+Byte-level reductions (timestamps, ANSI, null JSON fields) for Scenario C savings — see [references/log-line-optimization.md](references/log-line-optimization.md).
 
 ---
 
@@ -517,63 +450,4 @@ Focus on these before anything else.
 
 ## Cost Impact Analysis
 
-### How label changes translate to billing
-
-Label cardinality changes (removing high-churn labels such as `pod`, raw `filename`, optionally `node`, plus duplicate/constant labels) do not reduce ingested bytes directly. Loki bills on compressed bytes ingested, not on stream count. Do **not** treat `instance` as a default removal — it is acceptable for fixed Host/VM infrastructure when it matches access patterns. What high-cardinality labels _do_ inflate is:
-
-* **Index storage** — each unique label combination creates a TSDB index entry; more streams = larger index = higher memory and storage overhead
-* **Query compute** — scanning across thousands of streams is slower and consumes more Querier CPU
-
-The billing-visible savings come from changes that label cleanup _enables_:
-
-1. Normalize `level` first — once `level` has 5 stable lowercase values, a `stage.drop` in Alloy can discard `debug` and `trace` streams before ingest. Debug/trace often accounts for 20–40% of volume in verbose K8s workloads. **Guardrail:** only recommend dropping debug/trace after explicit customer confirmation; prefer env scoping (e.g. drop only when `env=prod`) or sampling rather than a blanket drop.
-2. Log-line optimization — removing embedded timestamps (redundant with Loki's metadata timestamp), ANSI color codes, null/empty JSON fields, and duplicate level fields reduces per-line byte size. Observed savings are typically 15–38%; the 38% figure is from the Istio access-log example in Log Line Optimization, not a universal expectation.
-
-### Savings scenarios
-
-Percentages below are **illustrative defaults**. Replace them with measured values from the Grafana Cloud usage metrics datasource (not the customer's Loki datasource) using `grafanacloud_logs_instance_billable_bytes_received_per_second` and `grafanacloud_org_logs_overage`, then apply the contract per-GB rate.
-
-| Scenario | Actions | Stream reduction | Volume reduction | Est. monthly savings¹ | Overage impact |
-|---|---|---|---|---|---|
-| A — Label hygiene only | Remove high-churn K8s labels (`pod`, raw `filename`, optionally `node`); drop duplicate + constant labels | ~−65 to −75% (illustrative) | 0% | $0 direct² | None |
-| B — Level fix + debug/trace drop | Scenario A + normalize level + `stage.drop` for debug/trace (**only if customer-approved / env-scoped**) | ~−75% (illustrative) | ~−25% (illustrative) | ~25% of monthly bill (replace with measured) | Often reduced or eliminated |
-| C — Full optimization | Scenario B + log-line cleanup (timestamps, nulls, ANSI) | ~−80% (illustrative) | ~−38% (Istio example ceiling) | ~volume reduction % of monthly bill | Eliminated + net savings (when measured) |
-
-¹ Apply contract per-GB rate to `monthly_volume_GB × reduction_%` for a dollar figure.
-² Scenario A produces **indirect** value: smaller index, lower Loki memory pressure, reduced query timeout risk, and avoidance of stream-count ingestion throttling limits.
-
-### Cost attribution prerequisite
-
-Grafana Cloud cost attribution uses **customer-configured** attribution label(s) (often `team`, `service`, or `env` — check Cost Management → Settings; up to two labels). Soft-enforce whichever label is configured (see Soft Enforcement under Alloy / Agent Configuration Patterns), not a hard-coded `owner`.
-
-Check unattributed volume (substitute the configured label for `<attr_label>`; `__missing__` only appears when attribution is enabled):
-
-```PromQL
-sum by (<attr_label>) (grafanacloud_logs_instance_attributed_bytes_received_per_second)
-```
-
-A high `__missing__` (or unlabeled) share means most overage cannot be assigned to a team. Soft-enforce the configured label with `stage.template` to inject `unknown` when absent, then work with teams to populate it correctly.
-
-### Measuring baseline before and after
-
-Query these against the **Grafana Cloud billing/usage metrics** datasource before changes, then again ~7 days after deploying the Alloy pipeline:
-
-```PromQL
-# Billable ingestion rate (bytes/s)
-grafanacloud_logs_instance_billable_bytes_received_per_second
-
-# Active stream count
-grafanacloud_logs_instance_active_streams
-
-# Current period monetary overage
-grafanacloud_org_logs_overage{monetary="true"}
-
-# Volume by configured attribution label (identifies unattributed share)
-sum by (<attr_label>) (grafanacloud_logs_instance_attributed_bytes_received_per_second)
-```
-
-Convert the ingestion rate to a monthly volume equivalent:
-
-```
-monthly_GB = bytes_per_second × 86400 × 30 / 1e9
-```
+Label hygiene alone does not cut billable ingest bytes ($0 direct). Volume savings come from enabled `stage.drop` / log-line cleanup. For A/B/C scenarios, attribution labels, and baseline PromQL against the Grafana Cloud usage metrics datasource, load [references/cost-impact.md](references/cost-impact.md) when writing the report's Cost Impact Analysis section.
