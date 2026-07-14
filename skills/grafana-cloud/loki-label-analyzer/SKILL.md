@@ -63,10 +63,25 @@ For each label, ask:
 
 ## Evaluation Output Format
 
-When auditing a label set, produce a report in this structure:
+When auditing a label set, produce a report in this structure. Every audit report **must** start with the Disclaimer (verbatim), and **must** include Cost Impact Analysis when Grafana Cloud usage metrics are available; if they are not, state what is missing and still give qualitative A/B/C guidance (see [Cost Impact Analysis](#cost-impact-analysis)).
 
 ```
 ## Loki Label Strategy Audit
+
+### Disclaimer
+
+This report is Confidential Information of Raintank, Inc. dba Grafana Labs
+(“Grafana Labs”), furnished for informational purposes only. It is not part of
+Grafana Labs product documentation, is not a substitute for official docs or
+Support, and is provided “as is” without warranties as to accuracy,
+completeness, or suitability.
+
+Recommendations were prepared by Grafana Labs Professional Services from
+domain expertise. They are a starting point, not definitive or universally
+applicable solutions. Every environment is unique — examine, adapt, and
+validate before implementing. Grafana Labs and Raintank, Inc. are not liable
+for damages arising from use of these recommendations. You remain responsible
+for implementation decisions and for keeping practices current.
 
 ### Summary
 [1-2 sentence overall assessment]
@@ -81,6 +96,13 @@ When auditing a label set, produce a report in this structure:
 - Stream count reduction: [X streams → Y streams]
 - Query performance: [describe improvement]
 - Storage impact: [if log line changes are involved]
+
+### Cost Impact Analysis
+- Billing note: label hygiene alone → $0 direct ingest savings; volume savings from enabled drops / line optimization
+- Baseline: billable bytes/s, active streams, overage (from Grafana Cloud usage metrics datasource)
+- Scenarios A/B/C with **measured** volumes and estimated monthly $ (or % of bill if rate unknown)
+- Attribution gap: share missing the configured cost-attribution label
+- Caveats: replace illustrative % with measured values; recommend debug/trace drop only with explicit customer confirmation / env scoping
 
 ### Recommended Label Set
 [Final recommended labels]
@@ -490,3 +512,68 @@ Focus on these before anything else.
 | `filename` (raw K8s path) | Contains pod UID | Normalize or drop |
 | Unnormalized `level` | `INFO`/`info`/`Info` = 3 streams | Normalize at collection time |
 | Any dynamically-named label key | Cannot be bounded | Use fixed keys with bounded values |
+
+---
+
+## Cost Impact Analysis
+
+### How label changes translate to billing
+
+Label cardinality changes (removing high-churn labels such as `pod`, raw `filename`, optionally `node`, plus duplicate/constant labels) do not reduce ingested bytes directly. Loki bills on compressed bytes ingested, not on stream count. Do **not** treat `instance` as a default removal — it is acceptable for fixed Host/VM infrastructure when it matches access patterns. What high-cardinality labels _do_ inflate is:
+
+* **Index storage** — each unique label combination creates a TSDB index entry; more streams = larger index = higher memory and storage overhead
+* **Query compute** — scanning across thousands of streams is slower and consumes more Querier CPU
+
+The billing-visible savings come from changes that label cleanup _enables_:
+
+1. Normalize `level` first — once `level` has 5 stable lowercase values, a `stage.drop` in Alloy can discard `debug` and `trace` streams before ingest. Debug/trace often accounts for 20–40% of volume in verbose K8s workloads. **Guardrail:** only recommend dropping debug/trace after explicit customer confirmation; prefer env scoping (e.g. drop only when `env=prod`) or sampling rather than a blanket drop.
+2. Log-line optimization — removing embedded timestamps (redundant with Loki's metadata timestamp), ANSI color codes, null/empty JSON fields, and duplicate level fields reduces per-line byte size. Observed savings are typically 15–38%; the 38% figure is from the Istio access-log example in Log Line Optimization, not a universal expectation.
+
+### Savings scenarios
+
+Percentages below are **illustrative defaults**. Replace them with measured values from the Grafana Cloud usage metrics datasource (not the customer's Loki datasource) using `grafanacloud_logs_instance_billable_bytes_received_per_second` and `grafanacloud_org_logs_overage`, then apply the contract per-GB rate.
+
+| Scenario | Actions | Stream reduction | Volume reduction | Est. monthly savings¹ | Overage impact |
+|---|---|---|---|---|---|
+| A — Label hygiene only | Remove high-churn K8s labels (`pod`, raw `filename`, optionally `node`); drop duplicate + constant labels | ~−65 to −75% (illustrative) | 0% | $0 direct² | None |
+| B — Level fix + debug/trace drop | Scenario A + normalize level + `stage.drop` for debug/trace (**only if customer-approved / env-scoped**) | ~−75% (illustrative) | ~−25% (illustrative) | ~25% of monthly bill (replace with measured) | Often reduced or eliminated |
+| C — Full optimization | Scenario B + log-line cleanup (timestamps, nulls, ANSI) | ~−80% (illustrative) | ~−38% (Istio example ceiling) | ~volume reduction % of monthly bill | Eliminated + net savings (when measured) |
+
+¹ Apply contract per-GB rate to `monthly_volume_GB × reduction_%` for a dollar figure.
+² Scenario A produces **indirect** value: smaller index, lower Loki memory pressure, reduced query timeout risk, and avoidance of stream-count ingestion throttling limits.
+
+### Cost attribution prerequisite
+
+Grafana Cloud cost attribution uses **customer-configured** attribution label(s) (often `team`, `service`, or `env` — check Cost Management → Settings; up to two labels). Soft-enforce whichever label is configured (see Soft Enforcement under Alloy / Agent Configuration Patterns), not a hard-coded `owner`.
+
+Check unattributed volume (substitute the configured label for `<attr_label>`; `__missing__` only appears when attribution is enabled):
+
+```PromQL
+sum by (<attr_label>) (grafanacloud_logs_instance_attributed_bytes_received_per_second)
+```
+
+A high `__missing__` (or unlabeled) share means most overage cannot be assigned to a team. Soft-enforce the configured label with `stage.template` to inject `unknown` when absent, then work with teams to populate it correctly.
+
+### Measuring baseline before and after
+
+Query these against the **Grafana Cloud billing/usage metrics** datasource before changes, then again ~7 days after deploying the Alloy pipeline:
+
+```PromQL
+# Billable ingestion rate (bytes/s)
+grafanacloud_logs_instance_billable_bytes_received_per_second
+
+# Active stream count
+grafanacloud_logs_instance_active_streams
+
+# Current period monetary overage
+grafanacloud_org_logs_overage{monetary="true"}
+
+# Volume by configured attribution label (identifies unattributed share)
+sum by (<attr_label>) (grafanacloud_logs_instance_attributed_bytes_received_per_second)
+```
+
+Convert the ingestion rate to a monthly volume equivalent:
+
+```
+monthly_GB = bytes_per_second × 86400 × 30 / 1e9
+```
