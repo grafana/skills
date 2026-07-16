@@ -155,6 +155,12 @@
           "description": "Analyze Grafana Cloud k6 test run trends over time. Detects slow metric drift (e.g., P95 latency creeping up while still passing thresholds), computes headroom to thresholds, flags anomalies, and recommends threshold tightening. Use when the user asks about test performance trends, wants to know if metrics are degrading, asks whether thresholds should be tightened, or wants a health check across recent runs for a specific test. Trigger on phrases like \"how is my test trending\", \"is P95 getting worse\", \"check for performance regression\", \"should I tighten thresholds\", \"are my tests degrading\", \"show me trends for test X\", \"analyze my k6 test runs\", or \"is my test getting slower\". Also trigger when a user asks to check all tests in a project -- run this skill once per test and synthesize.",
           "path": "skills/grafana-k6/k6-trend-analysis",
           "tags": ["k6", "load-testing", "grafana-cloud", "trends", "regression", "thresholds", "metrics"]
+        },
+        {
+          "name": "k6-test-maintenance",
+          "description": "Maintain and improve existing k6 test scripts. Covers threshold tightening based on trend data, version migration between k6 releases, auto-fixing tests when the underlying service changes, refactoring for cleanliness, and auditing scripts against current best practices from docs. Use when the user asks to fix a failing k6 test, tighten thresholds, migrate a script to a new k6 version, refactor a test, update a script after a service change, or improve a script with best practices. Trigger on phrases like \"fix my k6 test\", \"tighten my thresholds\", \"migrate to k6 v2\", \"update my test script\", \"refactor this k6 test\", \"my test is failing after a deploy\", \"apply best practices to my script\", \"modernize my k6 test\", or \"the service changed and my test broke\". Also trigger when another skill (k6-trend-analysis or k6-cloud-investigate-test) hands off with a recommendation to edit a script.",
+          "path": "skills/grafana-k6/k6-test-maintenance",
+          "tags": ["k6", "load-testing", "test-maintenance", "thresholds", "migration", "refactoring"]
         }
       ]
     },
