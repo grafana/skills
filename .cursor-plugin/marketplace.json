@@ -161,6 +161,8 @@
         "./skills/grafana-k6/k6",
         "./skills/grafana-k6/k6-perf-test-website",
         "./skills/grafana-k6/k6-manage",
+        "./skills/grafana-k6/k6-cloud-investigate-test",
+        "./skills/grafana-k6/k6-trend-analysis",
         "./skills/grafana-k6/k6-test-maintenance"
       ]
     },
