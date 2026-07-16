@@ -149,6 +149,12 @@
           "description": "Investigate a Grafana Cloud k6 test — describe the script, list run history, identify pass/fail status, pull raw metric time-series and log lines for one or more runs, and (if asked) safely edit the test script. Use when the user asks about a specific k6 cloud test or run, gives a `/a/k6-app/tests/<id>` or `/a/k6-app/runs/<id>` URL, asks \"is this test passing\", \"why are my k6 tests failing\", \"show me metrics for run X\", \"show me logs for run X\", or wants to add thresholds / fix a failing test. Trigger this skill even when the user doesn't explicitly say \"investigate\" — pasted `/a/k6-app/...` URLs, \"why did run X fail\", \"what happened with my test\", \"is my test healthy\", \"the latest run looks weird\", \"checks are failing but the run says passed\", or any request to diagnose a Grafana Cloud k6 run all qualify.",
           "path": "skills/grafana-k6/k6-cloud-investigate-test",
           "tags": ["k6", "load-testing", "grafana-cloud", "test-runs", "debugging", "logs", "metrics"]
+        },
+        {
+          "name": "k6-trend-analysis",
+          "description": "Analyze Grafana Cloud k6 test run trends over time. Detects slow metric drift (e.g., P95 latency creeping up while still passing thresholds), computes headroom to thresholds, flags anomalies, and recommends threshold tightening. Use when the user asks about test performance trends, wants to know if metrics are degrading, asks whether thresholds should be tightened, or wants a health check across recent runs for a specific test. Trigger on phrases like \"how is my test trending\", \"is P95 getting worse\", \"check for performance regression\", \"should I tighten thresholds\", \"are my tests degrading\", \"show me trends for test X\", \"analyze my k6 test runs\", or \"is my test getting slower\". Also trigger when a user asks to check all tests in a project -- run this skill once per test and synthesize.",
+          "path": "skills/grafana-k6/k6-trend-analysis",
+          "tags": ["k6", "load-testing", "grafana-cloud", "trends", "regression", "thresholds", "metrics"]
         }
       ]
     },
