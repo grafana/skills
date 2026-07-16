@@ -63,10 +63,25 @@ For each label, ask:
 
 ## Evaluation Output Format
 
-When auditing a label set, produce a report in this structure:
+When auditing a label set, produce a report in this structure. Every audit report **must** start with the Disclaimer (verbatim), and **must** include Cost Impact Analysis when Grafana Cloud usage metrics are available; if they are not, state what is missing and still give qualitative A/B/C guidance. Load [references/cost-impact.md](references/cost-impact.md) when filling that section.
 
 ```
 ## Loki Label Strategy Audit
+
+### Disclaimer
+
+This report is Confidential Information of Raintank, Inc. dba Grafana Labs
+(“Grafana Labs”), furnished for informational purposes only. It is not part of
+Grafana Labs product documentation, is not a substitute for official docs or
+Support, and is provided “as is” without warranties as to accuracy,
+completeness, or suitability.
+
+Recommendations were prepared by Grafana Labs Professional Services from
+domain expertise. They are a starting point, not definitive or universally
+applicable solutions. Every environment is unique — examine, adapt, and
+validate before implementing. Grafana Labs and Raintank, Inc. are not liable
+for damages arising from use of these recommendations. You remain responsible
+for implementation decisions and for keeping practices current.
 
 ### Summary
 [1-2 sentence overall assessment]
@@ -81,6 +96,13 @@ When auditing a label set, produce a report in this structure:
 - Stream count reduction: [X streams → Y streams]
 - Query performance: [describe improvement]
 - Storage impact: [if log line changes are involved]
+
+### Cost Impact Analysis
+- Billing note: label hygiene alone → $0 direct ingest savings; volume savings from enabled drops / line optimization
+- Baseline: billable bytes/s, active streams, overage (from Grafana Cloud usage metrics datasource)
+- Scenarios A/B/C with **measured** volumes and estimated monthly $ (or % of bill if rate unknown)
+- Attribution gap: share missing the configured cost-attribution label
+- Caveats: replace illustrative % with measured values; recommend debug/trace drop only with explicit customer confirmation / env scoping
 
 ### Recommended Label Set
 [Final recommended labels]
@@ -382,74 +404,7 @@ stage.labels { values = { team = "" } }
 
 ## Log Line Optimization
 
-These reduce storage costs. Establish a cost-per-GB baseline before implementing.
-
-### Remove Timestamps from Log Lines
-
-Each log entry already has a metadata timestamp — the inline timestamp is redundant (~30–34 bytes each, ~6% of a typical log line).
-
-```alloy
-loki.process "drop_timestamp" {
- forward_to = [...]
- // logfmt timestamps
- stage.replace {
- expression = "(?i)((?:time_?(?:stamp)?|ts|logdate|start_?time)=[^ \\n]+(?: |$))"
- replace = " "
- }
- // JSON timestamps
- stage.replace {
- expression = "(\"@?(?:time_?(?:stamp)?|ts|logdate|start_?time)\"\\s*:\\s*\"[^\"]+\",?)"
- replace = " "
- }
- // ISO-8601 at start of line
- stage.replace {
- expression = "^(\\d{4}-\\d{2}-\\d{2})T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?Z?)?"
- replace = ""
- }
-}
-```
-
-The original timestamp is still accessible at query time: `| line_format '{{ __timestamp__ | date "2006-01-02T15:04:05Z" }}'`
-
-### Remove ANSI Color Codes
-
-```alloy
-loki.process "decolorize" {
- forward_to = [...]
- stage.decolorize {}
-}
-```
-
-### Remove Duplicate Level Field (when `level` is already a label)
-
-```alloy
-stage.replace { expression = "(level=[^ ]+ )"; replace = "" }
-```
-
-### JSON Optimizations
-
-```alloy
-// Remove null values
-stage.replace {
- expression = "(\\s*(\"[^\"]+\"\\s*:\\s*null)(?:\\s*,)?\\s*)"
- replace = ""
-}
-
-// Remove placeholder values ("-", "undefined", "null" strings)
-stage.replace {
- expression = "(\\s*(\"[^\"]+\"\\s*:\\s*\"(?:-|null|undefined)\")(?:\\s*,)?\\s*)"
- replace = ""
-}
-
-// Remove empty values ("", [], {})
-stage.replace {
- expression = "(\\s*,\\s*(\"[^\"]+\"\\s*:\\s*(\\[\\s*\\]|\\{\\s*\\}|\"\\s*\"))|(\"[^\"]+\"\\s*:\\s*(\\[\\s*\\]|\\{\\s*\\}|\"\\s*\"))\\s*,\\s*)"
- replace = ""
-}
-```
-
-**Practical savings** (Istio access log example):
-Starting at 753 bytes (minified) → after removing nulls, placeholders, unused fields, normalizing keys: **464 bytes — 38% reduction**.
+Byte-level reductions (timestamps, ANSI, null JSON fields) for Scenario C savings — see [references/log-line-optimization.md](references/log-line-optimization.md).
 
 ---
 
@@ -490,3 +445,9 @@ Focus on these before anything else.
 | `filename` (raw K8s path) | Contains pod UID | Normalize or drop |
 | Unnormalized `level` | `INFO`/`info`/`Info` = 3 streams | Normalize at collection time |
 | Any dynamically-named label key | Cannot be bounded | Use fixed keys with bounded values |
+
+---
+
+## Cost Impact Analysis
+
+Label hygiene alone does not cut billable ingest bytes ($0 direct). Volume savings come from enabled `stage.drop` / log-line cleanup. For A/B/C scenarios, attribution labels, and baseline PromQL against the Grafana Cloud usage metrics datasource, load [references/cost-impact.md](references/cost-impact.md) when writing the report's Cost Impact Analysis section.
