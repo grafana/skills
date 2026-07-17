@@ -63,25 +63,20 @@ For each label, ask:
 
 ## Evaluation Output Format
 
-When auditing a label set, produce a report in this structure. Every audit report **must** start with the Disclaimer (verbatim), and **must** include Cost Impact Analysis when Grafana Cloud usage metrics are available; if they are not, state what is missing and still give qualitative A/B/C guidance. Load [references/cost-impact.md](references/cost-impact.md) when filling that section.
+When auditing a label set, produce a report in the structure below.
+
+**Hard requirements before finalizing any audit report:**
+
+1. **Disclaimer (mandatory, first body section):** Load [references/disclaimer.md](references/disclaimer.md) and paste its two paragraphs **verbatim** under a `### Disclaimer` heading. An empty Disclaimer heading is a failed report — do not ship the audit until both paragraphs are present. Never paraphrase, summarize, or omit this text.
+2. **Cost Impact Analysis:** Include when Grafana Cloud usage metrics are available; if they are not, state what is missing and still give qualitative A/B/C guidance. Load [references/cost-impact.md](references/cost-impact.md) and follow its **Required report shape** (scenario cards). Do **not** paste markdown tables or panel/query JSON into this section.
+
+**Report completion check:** Before delivering, confirm (a) the output contains the substring `Confidential Information of Raintank, Inc.` immediately after `### Disclaimer`, and (b) Cost Impact Analysis uses scenario cards (A/B/C) with a **Billing note** opener and a bullet **Measured baseline** — not a scenario table and not `panelId`/`targets` JSON. If (a) is missing, paste from [references/disclaimer.md](references/disclaimer.md) and re-emit. If (b) fails, rewrite Cost Impact from [references/cost-impact.md](references/cost-impact.md).
 
 ```
 ## Loki Label Strategy Audit
 
 ### Disclaimer
-
-This report is Confidential Information of Raintank, Inc. dba Grafana Labs
-(“Grafana Labs”), furnished for informational purposes only. It is not part of
-Grafana Labs product documentation, is not a substitute for official docs or
-Support, and is provided “as is” without warranties as to accuracy,
-completeness, or suitability.
-
-Recommendations were prepared by Grafana Labs Professional Services from
-domain expertise. They are a starting point, not definitive or universally
-applicable solutions. Every environment is unique — examine, adapt, and
-validate before implementing. Grafana Labs and Raintank, Inc. are not liable
-for damages arising from use of these recommendations. You remain responsible
-for implementation decisions and for keeping practices current.
+[Paste BOTH paragraphs from references/disclaimer.md HERE — never leave this heading empty]
 
 ### Summary
 [1-2 sentence overall assessment]
@@ -98,11 +93,28 @@ for implementation decisions and for keeping practices current.
 - Storage impact: [if log line changes are involved]
 
 ### Cost Impact Analysis
-- Billing note: label hygiene alone → $0 direct ingest savings; volume savings from enabled drops / line optimization
-- Baseline: billable bytes/s, active streams, overage (from Grafana Cloud usage metrics datasource)
-- Scenarios A/B/C with **measured** volumes and estimated monthly $ (or % of bill if rate unknown)
-- Attribution gap: share missing the configured cost-attribution label
-- Caveats: replace illustrative % with measured values; recommend debug/trace drop only with explicit customer confirmation / env scoping
+[Follow references/cost-impact.md Required report shape — do not invent a table]
+
+**Billing note:** Label hygiene alone does not reduce billable ingest bytes.
+Stream count and query cost improve; ingest $ drops only when volume is reduced.
+
+**Measured baseline** (Grafana Cloud usage metrics):
+- Active streams: [N]
+- Billable ingest: [rate]
+- Overage: [units or $]
+- Top ingest contributor: [name + rate] (omit if unavailable)
+
+**Scenario A — Label hygiene only (this audit)**
+- Actions / stream impact / volume=$0 / overage unchanged
+
+**Scenario B — A + approved debug/trace drop**
+- Actions / volume % / $ or overage estimate / customer-approval guardrail
+
+**Scenario C — B + log-line compaction**
+- Actions / additional volume % / highest-value target
+
+**Attribution gap:** [...]
+**Caveats:** [...]
 
 ### Recommended Label Set
 [Final recommended labels]
@@ -450,4 +462,4 @@ Focus on these before anything else.
 
 ## Cost Impact Analysis
 
-Label hygiene alone does not cut billable ingest bytes ($0 direct). Volume savings come from enabled `stage.drop` / log-line cleanup. For A/B/C scenarios, attribution labels, and baseline PromQL against the Grafana Cloud usage metrics datasource, load [references/cost-impact.md](references/cost-impact.md) when writing the report's Cost Impact Analysis section.
+Label hygiene alone does not cut billable ingest bytes ($0 direct). Volume savings come from enabled `stage.drop` / log-line cleanup. Load [references/cost-impact.md](references/cost-impact.md) when writing the report section: use its scenario-card shape, cite scalar metrics (optional short panel ID / PromQL), and never paste the agent-only reference table or panel JSON into the customer report.
