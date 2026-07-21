@@ -1,430 +1,191 @@
 ---
 name: k6
 license: Apache-2.0
-description: >
-  k6 performance and load testing. Covers writing test scripts in JavaScript/TypeScript, all test types
-  (load/stress/spike/soak/smoke/breakpoint), thresholds, checks, scenarios, executors, extensions,
-  result analysis, k6 Cloud execution, and CI/CD integration. Use when writing k6 tests, debugging
-  test failures, setting up load testing pipelines, choosing executors/scenarios, or interpreting k6 results.
+description: Generate, validate, and review k6 test scripts — load, stress, spike, soak, smoke, breakpoint, functional, and protocol. Covers HTTP, WebSocket, gRPC, browser, all executors, thresholds, checks, custom metrics, the k6-testing library, k6 Cloud execution, and the xk6 extension ecosystem; uses the xk6-docs CLI (with grafana.com web fallback) for docs lookup and validates every script by running it. Use when writing, generating, validating, or debugging any k6 or load-test script (including plain-language asks like "load test this API" or "stress test my service"), choosing executors/scenarios, or setting thresholds. For end-to-end website performance suites use k6-perf-test-website; for documenting k6 itself use k6-docs.
 ---
 
-# k6 Performance Testing
+# k6 Script Generation
 
-> **Docs**: https://grafana.com/docs/k6/latest/
+> **Efficiency note:** This is a short linear recipe (read example → adapt → save → validate → review). A todo list would just mirror the headings without adding value, so skip the planning overhead and execute the steps directly.
+>
+> **Agent-agnostic:** The steps below describe capabilities, not specific tools. Where a step says "fetch a URL" or "write a file", use whatever your agent provides for that capability (e.g. a web-fetch tool, a file-write tool, or shell `curl`/`tee`).
 
-## Quick Start
+---
 
-```bash
-# Install
-brew install k6                          # macOS
-sudo apt install k6                      # Ubuntu/Debian
-choco install k6                         # Windows
+## Step 1: Pick the right example file
 
-# Run a test
-k6 run script.js
-k6 run --vus 10 --duration 30s script.js
-k6 run --out json=results.json script.js
-```
+Read only the file that matches the user's request. Examples provide structural scaffolding — the correct scaffold, option shapes, and import patterns.
 
-## Basic Script Structure
+| User needs | Read this file |
+|-----------|---------------|
+| HTTP REST, auth flow, batch requests | `examples/http.js` |
+| HTML parsing with parseHTML, SharedArray | `examples/html.js` |
+| WebSocket | `examples/websocket.js` |
+| gRPC | `examples/grpc.js` |
+| Browser automation | `examples/browser.js` |
+| Browser + functional test / `expect()` / k6-testing | `examples/functional.js` (browser scenario) |
+| Functional/integration tests, `expect()`, k6-testing | `examples/functional.js` |
+| Custom metrics, execution module, handleSummary, per-vu-iterations | `examples/metrics.js` |
+| Load patterns, all executors (ramping, arrival rate, per-VU, etc.) | `examples/executors.js` |
+| Cloud run, `--local-execution`, `cloud` options | `examples/cloud.js` |
+| Crypto (HMAC, MD5, SHA256) or encoding (base64) | `examples/crypto-encoding.js` |
+| xk6-faker | `examples/ext-faker.js` |
+| xk6-redis | `examples/ext-redis.js` |
+| xk6-sql / sqlite3 / postgres | `examples/ext-sql.js` |
+| xk6-exec | `examples/ext-exec.js` |
+| xk6-dns | `examples/ext-dns.js` |
+| xk6-tls | `examples/ext-tls.js` |
+| xk6-tcp | `examples/ext-tcp.js` |
+| xk6-crawler | `examples/ext-crawler.js` |
 
-```javascript
-import http from 'k6/http';
-import { check, sleep } from 'k6';
+Example files live in the `examples/` directory alongside this `SKILL.md`.
 
-export const options = {
-  vus: 10,
-  duration: '30s',
-  thresholds: {
-    http_req_duration: ['p(95)<500'],   // 95% of requests under 500ms
-    http_req_failed: ['rate<0.01'],     // error rate under 1%
-  },
-};
+**When the request matches multiple rows** (e.g. "browser" + "functional test"), prefer the row whose assertion style fits the intent. If the user says "functional test", "assert", "verify", or "expect", use `functional.js` even if the test involves a browser — it demonstrates `expect()` with auto-retrying browser matchers. Use `browser.js` for browser load/performance tests that don't emphasize correctness assertions.
 
-export default function () {
-  const res = http.get('https://test.k6.io');
-  check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time OK': (r) => r.timings.duration < 500,
-  });
-  sleep(1);
-}
-```
+---
 
-## Test Lifecycle
+## Step 2: Adapt the example
 
-```javascript
-export function setup() {
-  // Runs once before all VUs — return data shared with VUs
-  const token = getAuthToken();
-  return { token };
-}
+Use the loaded example as the starting point. Adapt it to the user's exact requirements:
+- Change endpoints, VU counts, durations, thresholds
+- Add or remove scenario steps
+- Rename functions and variables to match the domain
+- Every expression must be complete and runnable — no `{ ... }`, `// TODO`, or stubs
+- **Match the request — don't over-build.** Implement exactly what was asked. Don't add custom request tags, extra `sleep()` calls, additional endpoints, or `options` the user didn't request. Unrequested complexity lowers quality and reduces adherence to the spec.
 
-export default function (data) {
-  // Runs for each VU iteration — receives setup() return value
-  http.get('https://api.example.com', {
-    headers: { Authorization: `Bearer ${data.token}` },
-  });
-}
+For multi-scenario scripts (browser + HTTP, cloud): use named `scenarios` with `exec` pointing to separate exported functions.
 
-export function teardown(data) {
-  // Runs once after all VUs finish
-  console.log('Test complete');
-}
-```
+---
 
-## HTTP Requests
+## Step 3: Fill gaps with docs (only if needed)
 
-```javascript
-import http from 'k6/http';
+The example covers common patterns. Adapt from it directly. **Skip this step entirely** if the example provides everything you need.
 
-// GET
-const res = http.get('https://api.example.com/users');
+**Only reach for docs if**:
+- The user asks for an API or option not demonstrated in the example, **or**
+- You are not confident about the exact signature, option name, or return type
 
-// POST with JSON body
-const payload = JSON.stringify({ name: 'test', value: 42 });
-const params = { headers: { 'Content-Type': 'application/json' } };
-const res = http.post('https://api.example.com/users', payload, params);
+When a gap exists, first establish the docs command (one-time per session).
 
-// PUT / PATCH / DELETE
-http.put(url, body, params);
-http.patch(url, body, params);
-http.del(url, null, params);
-
-// Batch requests (parallel)
-const responses = http.batch([
-  ['GET', 'https://api.example.com/users'],
-  ['GET', 'https://api.example.com/posts'],
-]);
-
-// With auth
-const res = http.get(url, {
-  headers: { Authorization: 'Bearer token123' },
-});
-
-// Form data
-const res = http.post(url, { username: 'user', password: 'pass' });
-
-// File upload
-const binFile = open('./image.png', 'b');
-const res = http.post(url, {
-  file: http.file(binFile, 'image.png', 'image/png'),
-  field: 'value',
-});
-```
-
-## Checks and Thresholds
-
-```javascript
-import { check } from 'k6';
-
-// Checks (soft assertions — don't stop test on failure)
-const res = http.get(url);
-check(res, {
-  'status 200': (r) => r.status === 200,
-  'body contains ID': (r) => r.body.includes('"id"'),
-  'duration < 500ms': (r) => r.timings.duration < 500,
-});
-
-// Thresholds (hard pass/fail criteria)
-export const options = {
-  thresholds: {
-    // HTTP metrics
-    http_req_duration: ['p(90)<400', 'p(95)<800', 'avg<200'],
-    http_req_failed: ['rate<0.05'],
-
-    // Custom metric thresholds
-    my_errors: ['count<10'],
-
-    // Tag-based thresholds (specific endpoints)
-    'http_req_duration{name:homepage}': ['p(95)<500'],
-
-    // Abort test if threshold breached
-    http_req_duration: [{ threshold: 'p(99)<3000', abortOnFail: true }],
-  },
-};
-```
-
-## Custom Metrics
-
-```javascript
-import { Counter, Gauge, Rate, Trend } from 'k6/metrics';
-
-const myErrors = new Counter('my_errors');
-const activeUsers = new Gauge('active_users');
-const successRate = new Rate('success_rate');
-const reqDuration = new Trend('req_duration', true); // true = display in ms
-
-export default function () {
-  const res = http.get(url);
-  if (res.status !== 200) myErrors.add(1);
-  successRate.add(res.status === 200);
-  reqDuration.add(res.timings.duration);
-}
-```
-
-## Scenarios and Executors
-
-See `references/scenarios-executors.md` for full reference.
-
-```javascript
-export const options = {
-  scenarios: {
-    // Constant VUs
-    steady_load: {
-      executor: 'constant-vus',
-      vus: 50,
-      duration: '5m',
-    },
-    // Ramping VUs (most common)
-    ramp_up: {
-      executor: 'ramping-vus',
-      startVUs: 0,
-      stages: [
-        { duration: '2m', target: 100 },
-        { duration: '5m', target: 100 },
-        { duration: '2m', target: 0 },
-      ],
-    },
-    // Constant arrival rate (requests per second)
-    constant_rps: {
-      executor: 'constant-arrival-rate',
-      rate: 100,             // 100 iterations/sec
-      timeUnit: '1s',
-      duration: '5m',
-      preAllocatedVUs: 50,
-      maxVUs: 200,
-    },
-    // Per-VU iterations
-    per_vu: {
-      executor: 'per-vu-iterations',
-      vus: 10,
-      iterations: 100,
-    },
-  },
-};
-```
-
-## Test Types
-
-See `references/test-types.md` for full examples.
-
-| Type | Purpose | Load Pattern |
-|------|---------|-------------|
-| **Smoke** | Verify script works, minimal load | 1-2 VUs, short duration |
-| **Load** | Normal expected load | Ramp up → steady → ramp down |
-| **Stress** | Beyond normal capacity | Increasing stages until breaking |
-| **Spike** | Sudden traffic surge | Instant spike then drop |
-| **Soak** | Extended duration for memory leaks | Moderate load, hours-long |
-| **Breakpoint** | Find system limits | Continuously increasing load |
-
-## Environment Variables and CLI Flags
+The `k6 x docs` CLI renders content only when it detects a TTY. Since agents
+run non-interactively, wrap every call with `script` to allocate a pseudo-TTY
+and pipe the ANSI-stripped content to stdout:
 
 ```bash
-# Pass variables to script
-k6 run -e MY_VAR=value script.js     # access as __ENV.MY_VAR
-k6 run --env API_URL=https://api.example.com script.js
+# Detect OS once (macOS vs Linux have different `script` flags):
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  DOCS_CMD="script -q /dev/null k6 x docs"
+else
+  DOCS_CMD="script -qc 'k6 x docs' /dev/null"
+fi
 
-# Override options
-k6 run --vus 50 --duration 60s script.js
-k6 run --iterations 1000 script.js
-k6 run --stage 30s:10,1m:50,30s:0 script.js   # ramping stages
-
-# Output formats
-k6 run --out json=result.json script.js
-k6 run --out csv=result.csv script.js
-k6 run --out influxdb=http://localhost:8086/k6 script.js
-k6 run --out statsd script.js
+# Verify it works — should print a topic list, NOT a "browse files" guide:
+$DOCS_CMD 2>/dev/null | head -5
 ```
 
-## Groups and Tags
+If the output still shows "k6 documentation is a directory of markdown files",
+the TTY wrapper isn't working. Fall back to **web docs** under
+`https://grafana.com/docs/k6/latest/` — fetch pages with whatever web-fetch
+capability your agent has (a built-in fetch tool, or `curl` in a shell).
 
-```javascript
-import { group } from 'k6';
+If `k6 x docs` fails outright (command not found, provisioning or 404 errors),
+read `SETUP.md` — it covers auto-provisioning on k6 v1.7.0+ and the manual
+xk6 build for older versions.
 
-export default function () {
-  group('homepage', () => {
-    const res = http.get('/');
-    check(res, { 'status 200': (r) => r.status === 200 });
-  });
-
-  group('login flow', () => {
-    group('load login page', () => {
-      http.get('/login');
-    });
-    group('submit credentials', () => {
-      http.post('/login', { user: 'test', pass: 'test' });
-    });
-  });
-}
-
-// Custom tags on requests
-http.get(url, { tags: { name: 'homepage', version: 'v2' } });
-```
-
-## WebSocket
-
-```javascript
-import ws from 'k6/ws';
-import { check } from 'k6';
-
-export default function () {
-  const url = 'ws://echo.websocket.org';
-  const res = ws.connect(url, {}, function (socket) {
-    socket.on('open', () => {
-      socket.send('Hello!');
-      socket.setInterval(() => socket.ping(), 10000);
-    });
-    socket.on('message', (data) => {
-      check(data, { 'message received': (d) => d.length > 0 });
-    });
-    socket.on('error', (e) => console.error(e.error()));
-    socket.setTimeout(() => socket.close(), 30000);
-  });
-  check(res, { 'status 101': (r) => r.status === 101 });
-}
-```
-
-## Browser Testing
-
-```javascript
-import { browser } from 'k6/browser';
-import { check } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
-
-export const options = {
-  scenarios: {
-    ui: {
-      executor: 'shared-iterations',
-      options: { browser: { type: 'chromium' } },
-    },
-  },
-};
-
-export default async function () {
-  const page = await browser.newPage();
-  try {
-    await page.goto('https://test.k6.io/my_messages.php');
-    await page.locator('input[name="login"]').type('admin');
-    await page.locator('input[name="password"]').type('123');
-    await Promise.all([
-      page.waitForNavigation(),
-      page.locator('input[type="submit"]').click(),
-    ]);
-    check(page, { 'header': p => p.locator('h2').textContent() == 'Welcome, admin!' });
-  } finally {
-    await page.close();
-  }
-}
-```
-
-## Modules and Imports
-
-```javascript
-// Built-in modules
-import http from 'k6/http';
-import { check, group, sleep, fail } from 'k6';
-import { Counter, Gauge, Rate, Trend } from 'k6/metrics';
-import { SharedArray } from 'k6/data';
-import { scenario, vu } from 'k6/execution';
-import ws from 'k6/ws';
-import grpc from 'k6/net/grpc';
-import { browser } from 'k6/browser';
-import crypto from 'k6/crypto';
-import encoding from 'k6/encoding';
-import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js';
-
-// jslib utilities
-import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
-import { randomItem, randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
-```
-
-## SharedArray (efficient data loading)
-
-```javascript
-import { SharedArray } from 'k6/data';
-import papaparse from 'https://jslib.k6.io/papaparse/5.1.1/index.js';
-
-// Load CSV once, shared across all VUs
-const users = new SharedArray('users', function () {
-  return papaparse.parse(open('./users.csv'), { header: true }).data;
-});
-
-// Load JSON
-const data = new SharedArray('data', function () {
-  return JSON.parse(open('./data.json'));
-});
-
-export default function () {
-  const user = users[Math.floor(Math.random() * users.length)];
-  http.post('/login', { username: user.username, password: user.password });
-}
-```
-
-## k6 Cloud (Grafana Cloud k6)
-
-```javascript
-export const options = {
-  cloud: {
-    projectID: 123456,
-    name: 'My Load Test',
-    note: 'Release candidate',
-    distribution: {
-      distributionLabel1: { loadZone: 'amazon:us:ashburn', percent: 50 },
-      distributionLabel2: { loadZone: 'amazon:eu:dublin', percent: 50 },
-    },
-  },
-};
-```
+Then look up what you need:
 
 ```bash
-# Authenticate
-k6 cloud login --token <your-token>
-
-# Run in cloud
-k6 cloud script.js
-
-# Run locally but stream results to cloud
-k6 run --out cloud script.js
+$DOCS_CMD <path>              # e.g. javascript-api k6-http
+$DOCS_CMD <path> --depth 2
+$DOCS_CMD search <term>
 ```
 
-## CLI Flags Summary
+Common CLI paths and the 2-call strategy are in `docs-guidance.md`.
 
-| Flag | Description |
-|------|-------------|
-| `--vus N` | Number of virtual users |
-| `--duration Xs/Xm/Xh` | Test duration |
-| `--iterations N` | Total iterations |
-| `--stage Xm:N` | Add ramp stage |
-| `--env KEY=value` | Environment variable |
-| `--out FORMAT` | Output destination |
-| `--quiet` | Suppress progress output |
-| `--no-summary` | Skip end-of-test summary |
-| `--summary-export FILE` | Export summary as JSON |
-| `--http-debug` | Print HTTP request/response details |
-| `--insecure-skip-tls-verify` | Skip TLS verification |
-| `--tag KEY=VALUE` | Add test-wide tag |
+**Do not use unpkg, @types/k6, or any npm type definition URLs.**
 
-## Key Built-in Metrics
+---
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `http_req_duration` | Trend | Total request time |
-| `http_req_failed` | Rate | Failed request rate |
-| `http_req_waiting` | Trend | Time to first byte (TTFB) |
-| `http_req_connecting` | Trend | TCP connection time |
-| `http_req_tls_handshaking` | Trend | TLS handshake time |
-| `http_reqs` | Counter | Total HTTP requests |
-| `vus` | Gauge | Current active VUs |
-| `vus_max` | Gauge | Max VUs allocated |
-| `iterations` | Counter | Total VU iterations |
-| `iteration_duration` | Trend | Time to complete one iteration |
-| `data_sent` | Counter | Data sent |
-| `data_received` | Counter | Data received |
-| `checks` | Rate | Check success rate |
+## Step 4: Save
 
-## References
+Line 1 of every script must be a generated-by comment. Get the current UTC timestamp first (the file content depends on it, so this can't be parallelized with the write):
 
-- [JavaScript API](references/javascript-api.md)
-- [Test Types](references/test-types.md)
-- [Scenarios & Executors](references/scenarios-executors.md)
-- [Examples](references/examples.md)
+```bash
+date -u +%Y-%m-%dT%H:%M:%SZ
+```
+
+Then include it as line 1:
+```javascript
+// Generated by grafana-k6 on 2026-03-25T22:02:20.203Z
+```
+
+Save to `k6/scripts/<descriptive-name>.js`. Use lowercase kebab-case filenames. If your file-write capability doesn't create parent directories automatically, `mkdir -p k6/scripts` first.
+
+**The script file on disk is the deliverable** — always write it. Never end the task with the script shown only in chat: Steps 5–7 (validate, review, present) all require the file to exist at `k6/scripts/<name>.js`. If a write fails, retry it before continuing.
+
+---
+
+## Step 5: Validate
+
+Match top-down — the first matching row wins:
+
+| Script type | Command |
+|------------|---------|
+| Imports `k6/browser` | `k6 run k6/scripts/<name>.js` |
+| Any `ramping-vus` or `*-arrival-rate` scenario | `k6 inspect k6/scripts/<name>.js` — a full run would execute the entire load profile against the target |
+| Other named `executor:` blocks (short scenarios) | `k6 run k6/scripts/<name>.js` |
+| Everything else (HTTP, WS, gRPC) | `k6 run --vus 1 --iterations 1 k6/scripts/<name>.js` |
+
+**What counts as passing:** for functional and browser scripts, validation passes only when the exit code is 0 *and* the summary shows no failed checks or `expect()` errors — a script that completes with failing assertions is not validated. k6's error output names the exact locator or assertion that failed (and what it waited for); use it to fix the selector or logic. For load tests, exit code 0 is a pass, and a pure threshold breach under load (exit code 99) is acceptable.
+
+If validation fails: read stderr, fix the root cause, retry up to **3 attempts**. After 3 failures, present the error and ask the user how to proceed (or, when running unattended, deliver the best attempt and clearly report the unresolved error).
+
+---
+
+## Step 6: Best-practices review
+
+### General checks (all scripts)
+
+Review the script against the rules below. The checklist is authoritative — only look up docs (`$DOCS_CMD best-practices` or `https://grafana.com/docs/k6/latest/using-k6/`) if you're uncertain about a specific rule.
+
+- **`export const options` with realistic VUs/duration.** Default VUs/durations make the test meaningful out of the box.
+- **Define `thresholds` for every load test.** Without thresholds the run can't fail in CI even when performance regresses, which defeats the point of running a load test. At minimum include `http_req_duration` and `http_req_failed` (or the protocol equivalent). Pure functional tests — single-iteration `expect()`-only scripts — can skip this.
+- **Include `sleep()` in every load test.** `sleep()` represents user think time; without it, VUs hammer endpoints faster than any real user would, inflating throughput and crowding out the system under test. This applies to HTTP, WebSocket, gRPC, crypto, extension scripts, and all executor types. Browser scripts use `page.waitForTimeout()` instead, and single-iteration functional tests can skip it. In event-driven WebSocket scripts, put the `sleep()` inside the `close` handler (see `examples/websocket.js`) — sleeping in the main function body blocks the event loop before any messages arrive.
+- **Assert every response.** **Browser scripts**: use `expect()` from k6-testing — it auto-retries against locators and replaces `waitFor()` + `isVisible()` + `check()` chains. If you need metric-tracked `check()` inside an async browser function, import from `https://jslib.k6.io/k6-utils/1.5.0/index.js` — the standard `check` from `k6` does NOT work in async contexts. **HTTP/gRPC/WS scripts**: use `check()` for metric-tracked assertions, or `expect()` for functional tests. Silent failures are worse than loud ones.
+- **Browser scripts:** wrap interactions in `try/finally` with `page.close()` in `finally`, so pages clean up even when assertions throw.
+- **gRPC scripts:** wrap the iteration's calls in `try/finally` and call `client.close()` in the `finally` block, so the connection is released even when a check throws mid-iteration.
+- **WebSocket scripts:** wrap `JSON.parse` of incoming messages in `try/catch` — servers can send non-JSON frames, and one bad frame shouldn't kill the VU.
+- **No `let`/`var` at top level** — use `const`, since module-scope state is shared across VUs and mutability there is almost always a bug.
+- **No deprecated imports** — use `k6/websockets` for WebSockets; both `k6/ws` and `k6/experimental/websockets` are deprecated.
+
+### Load & breakpoint tests
+
+- **Breakpoint tests: ramp *offered load*, not VUs.** Use an open-model executor (`ramping-arrival-rate`) so the request rate is independent of how slow the system gets; a closed model (`ramping-vus`) throttles itself as latency rises and masks the breaking point. Pair thresholds with `abortOnFail: true` and a short `delayAbortEval` so the run stops (and reports) once an SLO is crossed.
+- **Track SLO-relevant custom metrics** for reporting: per-endpoint latency (`Trend`), an error `Rate`, and any domain counters — plus a `handleSummary` that surfaces p95/p99, throughput (req/s), and error rate. See `examples/executors.js` and `examples/metrics.js`.
+- **Hybrid protocol + browser load tests:** wrap the browser flow in `try/catch` and record failures to a custom error metric instead of letting an `expect()` throw — a single flaky browser iteration must not abort a long protocol load run.
+
+### Browser scripts — recommended practices
+
+If the script imports `k6/browser`, read `browser-best-practices.md` and apply all checks. Fix issues and re-validate.
+
+---
+
+## Step 7: Present results
+
+1. Full script with file path
+2. Validation output
+3. Best-practices notes (issues found, or "all checks passed")
+4. Suggested run command
+
+```bash
+k6 run --vus 10 --duration 30s k6/scripts/api-load-test.js
+k6 run k6/scripts/browser-test.js
+k6 cloud run k6/scripts/cloud-test.js
+k6 cloud run --local-execution k6/scripts/hybrid-test.js
+./k6-with-faker run k6/scripts/faker-test.js
+K6_BROWSER_HEADLESS=true k6 run k6/scripts/browser-test.js
+```
+
+## Step 8: Execute
+
+If the user confirms, run the command.
