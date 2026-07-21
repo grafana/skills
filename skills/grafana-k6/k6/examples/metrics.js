@@ -12,13 +12,14 @@
  * - SharedArray initialiser runs once at init time — keep it cheap.
  * - execution.vu.idInTest is 1-indexed and unique per VU across all scenarios.
  * - handleSummary receives the same data object as the built-in summary.
- * - textSummary is a built-in helper — no import needed.
+ * - textSummary comes from the k6-summary jslib (imported below); it is NOT a global.
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Gauge, Rate, Trend } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import execution from 'k6/execution';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.1.0/index.js';
 
 // ── Custom metrics ─────────────────────────────────────────────────────────
 const requestCount   = new Counter('pizza_requests');          // cumulative count
@@ -98,7 +99,7 @@ export function teardown(data) {
 }
 
 export function handleSummary(data) {
-  // Return a custom summary. textSummary is available globally.
+  // Return a custom summary. textSummary is imported from the k6-summary jslib above.
   return {
     'k6-summary.json': JSON.stringify(data, null, 2),
     stdout: textSummary(data, { indent: '  ', enableColors: true }),

@@ -22,7 +22,7 @@
 import sql from 'k6/x/sql';
 import driver from 'k6/x/sql/driver/sqlite3';
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 const db = sql.open(driver, '/tmp/k6_results.db');
 
@@ -59,6 +59,7 @@ export default function () {
   );
 
   check(res, { 'status 200': (r) => r.status === 200 });
+  sleep(1);
 }
 
 export function teardown() {
