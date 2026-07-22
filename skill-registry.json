@@ -124,8 +124,14 @@
     },
     {
       "name": "grafana-k6",
-      "description": "k6 open-source load testing — documentation writing and review",
+      "description": "k6 open-source load and performance testing — authoring, running, validating, and maintaining test scripts, plus Grafana Cloud k6 operations and documentation.",
       "skills": [
+        {
+          "name": "k6",
+          "description": "Generate, validate, and review k6 test scripts — load, stress, spike, soak, smoke, breakpoint, functional, and protocol. Covers HTTP, WebSocket, gRPC, browser, all executors, thresholds, checks, custom metrics, the k6-testing library, k6 Cloud execution, and the xk6 extension ecosystem; uses the xk6-docs CLI (with grafana.com web fallback) for docs lookup and validates every script by running it. Use when writing, generating, validating, or debugging any k6 or load-test script (including plain-language asks like \"load test this API\" or \"stress test my service\"), choosing executors/scenarios, or setting thresholds. For end-to-end website performance suites use k6-perf-test-website; for documenting k6 itself use k6-docs.",
+          "path": "skills/grafana-k6/k6",
+          "tags": ["k6", "load-testing", "performance", "browser", "protocol", "authoring"]
+        },
         {
           "name": "k6-docs",
           "description": "Write or review k6 documentation across TypeScript types (k6-DefinitelyTyped), user docs (k6-docs), and release notes. Use when documenting k6 features, reviewing k6 pull requests for documentation, or writing TypeScript type definitions.",
