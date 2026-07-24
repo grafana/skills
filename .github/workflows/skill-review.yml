@@ -49,7 +49,10 @@ jobs:
       # provisioned in deployment_tools — see follow-up. Until then, scores
       # appear in the run log and the status check still gates merges.
       - name: Run Tessl Skill Review
-        uses: tesslio/skill-review@22e928dd837202b2b1d1397e0114c92e0fae5ead # main @ 2026-03-27
+        # Pin includes scoreBar fix for rubric scale 1-5 (tesslio/skill-review#18).
+        # Older pins crash with String.prototype.repeat RangeError when a
+        # dimension score exceeds the old hardcoded max of 3.
+        uses: tesslio/skill-review@5aefcf5e500ae13a9af904383dbb914c6c3a50e4 # main @ 2026-07-22
         env:
           # TESSL_TOKEN forwarded so the action keeps working when setup-tessl@v1
           # is phased out for @v2 (token-required).
