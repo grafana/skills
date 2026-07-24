@@ -28,8 +28,8 @@ jobs:
       - name: Get Tessl token from Vault
         id: get-secrets
         # Tessl API token (from https://tessl.io workspace settings) maintained
-        # in Grafana's dev Vault. The action no longer exports secrets as env
-        # vars by default; we forward TESSL_TOKEN explicitly on the review step.
+        # in Grafana's dev Vault. Passed into skill-review via the tessl-token
+        # input (required by setup-tessl@v2).
         uses: grafana/shared-workflows/actions/get-vault-secrets@e378ca000c6166a44060ed3a3c987a53da14128d # main
         with:
           vault_instance: dev
@@ -53,15 +53,14 @@ jobs:
         # Older pins crash with String.prototype.repeat RangeError when a
         # dimension score exceeds the old hardcoded max of 3.
         uses: tesslio/skill-review@5aefcf5e500ae13a9af904383dbb914c6c3a50e4 # main @ 2026-07-22
-        env:
-          # TESSL_TOKEN forwarded so the action keeps working when setup-tessl@v1
-          # is phased out for @v2 (token-required).
-          TESSL_TOKEN: ${{ fromJSON(steps.get-secrets.outputs.secrets).TESSL_TOKEN }}
         with:
           comment: 'false'
           # Block PR merge on scores below 75. Anthropic best-practice baseline
           # is ~80; 75 leaves some room for rubric noise without being lax.
           fail-threshold: 75
+          # setup-tessl@v2 (pulled in by this action pin) requires the token as
+          # an action input — env TESSL_TOKEN alone is not enough to log in.
+          tessl-token: ${{ fromJSON(steps.get-secrets.outputs.secrets).TESSL_TOKEN }}
 
   fork-pr-notice:
     runs-on: ubuntu-latest
