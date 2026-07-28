@@ -30,7 +30,7 @@ jobs:
         # Tessl API token (from https://tessl.io workspace settings) maintained
         # in Grafana's dev Vault. Passed into skill-review via the tessl-token
         # input (required by setup-tessl@v2).
-        uses: grafana/shared-workflows/actions/get-vault-secrets@e378ca000c6166a44060ed3a3c987a53da14128d # main
+        uses: grafana/shared-workflows/actions/get-vault-secrets@8eef102d2f5f93bc3d2b26937e7bec29115d81e8 # main
         with:
           vault_instance: dev
           repo_secrets: |
