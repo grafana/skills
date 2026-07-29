@@ -99,6 +99,7 @@ Grafana Cloud — fleet management, cloud integrations, cost optimization, and A
 | [assistant-mcp](skills/grafana-cloud/assistant-mcp) | Connect AI coding agents (Claude Code, Cursor, Codex) to Grafana Cloud via MCP |
 | [private-connectivity](skills/grafana-cloud/private-connectivity) | Private network connectivity — AWS PrivateLink, Azure Private Link, GCP Private Service Connect |
 | [testing](skills/grafana-cloud/testing) | Synthetic Monitoring, k6 Cloud load testing, and Frontend Observability |
+| [synthetic-monitoring-checks](skills/grafana-cloud/synthetic-monitoring-checks) | Author Synthetic Monitoring checks — k6 scripted and browser check deep dive, check-type selection, API/Terraform |
 
 ### grafana-lgtm
 

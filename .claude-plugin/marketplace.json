@@ -63,6 +63,7 @@
         "./skills/grafana-cloud/admin",
         "./skills/grafana-cloud/infrastructure",
         "./skills/grafana-cloud/testing",
+        "./skills/grafana-cloud/synthetic-monitoring-checks",
         "./skills/grafana-cloud/ml-ai",
         "./skills/grafana-cloud/app-observability",
         "./skills/grafana-cloud/database-observability",
