@@ -190,6 +190,11 @@ choose to convert:
 4. **Verify the target URL.** `servers:` blocks (and Postman environments) often list
    localhost or staging first — confirm the production base URL with the user, and map
    `securitySchemes` credentials to SM secrets, never to values inlined from the spec.
+5. **Treat `format: int64` ids as strings.** `res.json('id')` parses into a JS number
+   and silently corrupts values past 2^53 (snowflake-style ids), so the readback URL
+   404s on every execution while the create looks fine. Extract from the raw body
+   instead: `const id = (/"id":\s*(\d+)/.exec(res.body) || [])[1];` — and never do
+   arithmetic on it.
 
 No API spec at all? Probe the frontend: open the web app with browser devtools (or
 `curl` likely routes) and capture the `/api/*` XHR calls it makes — that's a monitorable
@@ -326,6 +331,7 @@ its configuration. Alerting: start with `alertSensitivity` / the default alert r
 | Check "fails" in your eyes but `probe_success` stays 1 | Bare `check()` without `fail()`/`expect()` — failures are recorded as metrics only. Convert to `expect()` or `check(...) \|\| fail(...)` |
 | Browser check flaps with locator timeouts | Brittle selectors or animation timing. Switch to `getByRole`/`getByTestId`, assert with auto-retrying `expect()`, remove manual waits |
 | `toBeVisible` reports `Expected: visible / Received: hidden` but the element is clearly visible | The locator matches multiple elements (strict mode) — the error message is misleading. Tighten the selector or use `.first()` |
+| Create succeeds but readback 404s on every execution | The id exceeds `Number.MAX_SAFE_INTEGER` (2^53) and `res.json()` silently rounded it — extract int64 ids from the raw body as strings (see the OpenAPI section) |
 | `secrets.get()` fails | Secret name mismatch (names are exact, ≤253 chars, letters/numbers/`-`/`_`), secret deleted (checks fail until recreated), or the editing user lacks the Admin/Editor role or "Checks writer" permission |
 | Executions time out but the journey is fine | Timeout too low for the journey (max 180s) — raise it; or the script does unbounded work per iteration. Also confirm timeout < frequency |
 | `Target has crashed` in browser check logs | Page exceeds the 1GB probe browser memory — trim the journey, block heavy third-party resources, or use a private probe with more memory |
