@@ -39,23 +39,25 @@ options, and pricing are different.
 
 ## Execution model and constraints (verify against these before writing)
 
-| Constraint | Scripted & browser checks |
+| Constraint | Value |
 |---|---|
-| Workload | 1 VU, 1 iteration per execution. `vus`, `duration`, `stages`, `iterations` are **ignored** |
+| Workload | One iteration per probe execution. Scripted and MultiHTTP run with forced `--vus 1 --iterations 1`; browser checks rely on the script's required single scenario. Either way `vus`, `duration`, `stages`, `iterations` are **ignored** — never write a load shape |
 | `thresholds` | **Not supported** |
-| Frequency | 60–3600 seconds (MultiHTTP: 10–3600s) |
-| Timeout | 1–180 seconds — this is the max execution time (MultiHTTP: 1–60s) |
+| Frequency | k6-class checks (scripted, MultiHTTP, browser): 60–3600s. Protocol checks (HTTP/ping/DNS/TCP/gRPC): 1–3600s. Traceroute: 120–3600s |
+| Timeout | Must be ≤ frequency. k6-class checks: 1–180s. Protocol checks: 1–60s. Traceroute: fixed 30s |
+| k6 version | Checks run on a [k6 version channel](https://grafana.com/docs/grafana-cloud/testing/synthetic-monitoring/create-checks/manage-k6-versions/) (new checks default to the latest stable channel; `v1.x` is deprecated as of July 2026). Pin per check via the UI dropdown or `channels` in API/Terraform |
 | Local files | `open()`, `fs`, `grpc.load()` unsupported. Bundle local modules into the script; remote `https://jslib.k6.io/...` imports work |
 | HTTP request errors | SM runs k6 with `--throw`: network-level request failures throw an exception and fail the execution |
-| Supported options | `batch`, `batch-per-host`, `discardResponseBodies`, `httpDebug`, `insecureSkipTLSVerify`, `maxRedirects`, `noConnectionReuse`, `setupTimeout`, `systemTags`, `tags`, `teardownTimeout`, `throw`, `tlsAuth`, `tlsCipherSuites`, `tlsVersion`, `userAgent` — set only in the script's `options` object |
-| Browser memory | 1GB RAM per browser on public probes — huge pages fail with `Target has crashed` |
+| Script options SM honors | SM sets its own CLI flags, which take precedence over the script's `options` object; the options that still take effect include `batch`, `batch-per-host`, `discardResponseBodies`, `httpDebug`, `insecureSkipTLSVerify`, `maxRedirects`, `noConnectionReuse`, `setupTimeout`, `systemTags`, `tags`, `teardownTimeout`, `throw`, `tlsAuth`, `tlsCipherSuites`, `tlsVersion`, `userAgent` |
+| Browser memory | [1GB RAM per browser on public probes](https://grafana.com/docs/grafana-cloud/testing/synthetic-monitoring/create-checks/checks/k6-browser/#public-probe-memory) — huge pages fail with `Target has crashed` |
 | Browser script format | The UI rejects bundled/minified browser scripts (import validation) — deploy those via API or Terraform |
 
 ## How an execution fails (this is what agents get wrong)
 
 `probe_success` (1/0) is the uptime signal. An execution is marked **failed** when the
 script throws an uncaught exception, calls `fail()`, a k6-testing `expect()` assertion
-fails, an HTTP request errors at the network level (`--throw`), or the timeout is hit.
+fails (it calls k6's `test.abort()` under the hood), an HTTP request errors at the
+network level (SM's `--throw`), or the timeout is hit.
 
 A **bare failed `check()` does NOT fail the execution** — it only records the
 `probe_checks_total` / `probe_check_success_rate` metrics. Checks don't affect k6's exit
@@ -190,6 +192,8 @@ choose to convert:
 4. **Verify the target URL.** `servers:` blocks (and Postman environments) often list
    localhost or staging first — confirm the production base URL with the user, and map
    `securitySchemes` credentials to SM secrets, never to values inlined from the spec.
+   (Secrets in plain HTTP/protocol checks are a recent, feature-flagged rollout — check
+   current docs; the scripted `secrets.get()` path always works.)
 5. **Treat `format: int64` ids as strings.** `res.json('id')` parses into a JS number
    and silently corrupts values past 2^53 (snowflake-style ids), so the readback URL
    404s on every execution while the create looks fine. Extract from the raw body
@@ -276,7 +280,7 @@ SM scripts are plain k6 scripts — always run them locally first:
 ```bash
 k6 run script.js                                              # scripted check
 K6_BROWSER_HEADLESS=true k6 run browser-check.js              # browser check
-k6 run --secret-source=mock=checkout-monitor-password=hunter2 script.js   # with secrets
+k6 run --secret-source=mock=checkout-monitor-password=example-password script.js   # with secrets
 # Many/large secrets: k6 run --secret-source=file=secrets.txt script.js
 ```
 

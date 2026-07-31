@@ -138,7 +138,7 @@ terraform {
   required_providers {
     grafana = {
       source  = "grafana/grafana"
-      version = "~> 3.0"
+      version = "~> 4.0"
     }
   }
 }
@@ -218,6 +218,63 @@ resource "grafana_synthetic_monitoring_check" "login_journey_browser" {
 
 Terraform is also the standard workaround for bundled/minified browser scripts that the
 UI's import validation rejects.
+
+### MultiHTTP in Terraform
+
+Unlike the API, Terraform takes the assertion and variable enums as **strings**
+(`TEXT`, `HTTP_STATUS_CODE`, `EQUALS`, `JSON_PATH`, ...) — same names as the protobuf,
+no numbers needed:
+
+```hcl
+resource "grafana_synthetic_monitoring_check" "api_flow" {
+  job       = "api-flow"
+  target    = "https://api.example.com/auth"
+  frequency = 120000
+  timeout   = 30000
+  probes    = [data.grafana_synthetic_monitoring_probes.main.probes.Ohio]
+
+  settings {
+    multihttp {
+      entries {
+        request {
+          method = "POST"
+          url    = "https://api.example.com/auth"
+        }
+        assertions {
+          type      = "TEXT"
+          subject   = "HTTP_STATUS_CODE"
+          condition = "EQUALS"
+          value     = "200"
+        }
+        variables {
+          type       = "JSON_PATH"
+          name       = "token"
+          expression = "$.token"
+        }
+      }
+      entries {
+        request {
+          method = "GET"
+          url    = "https://api.example.com/orders"
+          headers {
+            name  = "Authorization"
+            value = "Bearer $${token}"
+          }
+        }
+        assertions {
+          type      = "TEXT"
+          subject   = "HTTP_STATUS_CODE"
+          condition = "EQUALS"
+          value     = "200"
+        }
+      }
+    }
+  }
+}
+```
+
+(`$${token}` is Terraform escaping for a literal `${token}` — SM interpolates the
+variable at probe time.)
 
 ### Protocol (blackbox-exporter) checks in Terraform
 
