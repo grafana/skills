@@ -59,6 +59,12 @@
           "description": "Expert evaluator for Grafana Loki label strategy. Audits, designs, and improves label schemas using cardinality scoring, access-pattern alignment, static vs. dynamic label rules, and consistency checks. Use when the user asks to evaluate, audit, design, or improve a Loki label strategy — or asks why their Loki queries are slow.",
           "path": "skills/grafana-cloud/loki-label-analyzer",
           "tags": ["grafana-cloud", "loki", "logs", "labels", "cardinality", "alloy"]
+        },
+        {
+          "name": "synthetic-monitoring-checks",
+          "description": "Author Grafana Cloud Synthetic Monitoring checks — deep guidance for k6 scripted and browser checks, check-type selection, assertions that fail probe_success, secrets, and deployment via UI/API/Terraform. Use when writing a synthetic check, monitoring a login or checkout flow, converting a k6 script into a check, or validating a user journey in production. Not for load testing (use the grafana-k6 plugin).",
+          "path": "skills/grafana-cloud/synthetic-monitoring-checks",
+          "tags": ["grafana-cloud", "synthetic-monitoring", "k6", "browser-checks", "uptime", "checks", "terraform"]
         }
       ]
     },

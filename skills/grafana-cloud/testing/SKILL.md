@@ -93,6 +93,7 @@ faro.api.pushEvent('faro_smoketest', { ts: Date.now().toString() });
 
 ## References
 
+- For deep authoring of Synthetic Monitoring scripted (k6) and browser checks — execution model, assertions, secrets, API/Terraform payloads — see the [`synthetic-monitoring-checks`](../synthetic-monitoring-checks/SKILL.md) skill
 - [`references/synthetic.md`](references/synthetic.md) — Synthetic Monitoring essentials: check types, key PromQL metrics, alert rules
 - [`references/synthetic-monitoring.md`](references/synthetic-monitoring.md) — deep dive: full API for check CRUD, probe selection, scripted (k6) checks, multi-step browser checks
 - [`references/k6-and-faro.md`](references/k6-and-faro.md) — k6 cloud script + Faro Web SDK init snippets for end-to-end testing
