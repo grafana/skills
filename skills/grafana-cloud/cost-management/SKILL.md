@@ -18,7 +18,7 @@ Reduce metric / log / trace spend with Adaptive signals + cost-attribution label
 
 ## Execution paths
 
-The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no tokens are pasted into commands:
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - no tokens are pasted into commands. The `adaptive` commands need Grafana Cloud credentials: one-time `gcx cloud login` after the stack login:
 
 - `gcx metrics billing query '<EXPR>'` - billing/usage metrics (`grafanacloud_*`) without hunting for the usage datasource
 - `gcx metrics adaptive recommendations list` / `apply` - Adaptive Metrics (refer to the `adaptive-metrics` skill for the full workflow)

@@ -100,7 +100,8 @@ plugin-root-relative paths when installed via Claude Code:
 ## gcx and "Execution paths"
 
 Skills that call Grafana APIs include an `## Execution paths` section near the top of the body,
-following a three-step ladder (see `skills/grafana-core/gcx-cli` and any wave-1 skill for the shape):
+following a three-step ladder (see `skills/grafana-core/gcx-cli`, and e.g. `skills/grafana-cloud/fleet-management`
+or `skills/grafana-core/dashboarding` for the block shape):
 
 1. A dedicated [gcx](https://github.com/grafana/gcx) command when one exists (e.g. `gcx slo definitions list`)
 2. `gcx api <path>` for Grafana HTTP API endpoints with no dedicated command — still gcx auth, no pasted tokens

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """validate-gcx-invocations.py - catch stale gcx commands in skill markdown.
 
-Extracts every `gcx ...` invocation from fenced code blocks and inline code
+Extracts every `gcx ...` invocation from shell code blocks and inline code
 spans in skill markdown files, then validates the command path against the
 command tree of a real gcx binary (`gcx help-tree`). This is the same idea as
 the drift test gcx runs against its own bundled skills: when a gcx release
@@ -11,7 +11,9 @@ runtime.
 A command word only errors when it doesn't resolve at a point where gcx
 expects a subcommand (a command group). Positional arguments after leaf
 commands, flags, placeholders (<...>), paths (/...), and quoted strings are
-all ignored.
+all ignored. Fenced blocks are only scanned when their info string is a shell
+language (or empty), so quoted gcx *output* in ```text blocks doesn't
+false-positive.
 
 Usage:
     ./scripts/validate-gcx-invocations.py [--gcx-bin PATH] [DIR ...]
@@ -39,16 +41,30 @@ VALUE_FLAGS = {
 # command-path matching for the invocation.
 STOP_PREFIXES = ("<", "/", "'", '"', "{", "[", "$", "`")
 
-GCX_RE = re.compile(r"(?:^|[\s`$(|;&={])gcx\s+([^\n]*)")
-FENCE_RE = re.compile(r"^\s*(```|~~~)")
+# Fence info strings whose content is scanned for gcx invocations. Anything
+# else (text, json, yaml, python, ...) is output or non-shell code.
+SHELL_INFO = {"", "bash", "sh", "shell", "zsh", "console", "terminal"}
+
+# The lookahead keeps the match zero-width so several gcx invocations on one
+# line (e.g. chained with &&) are each extracted.
+GCX_RE = re.compile(r"(?=(?:^|[\s`$(|;&={])gcx\s+([^\n]*))")
+# Fences per CommonMark: 3+ backticks or tildes, up to 3 spaces of indent,
+# optional info string. A close needs the same char, at least the opening
+# length, and no info string - so nested shorter fences inside a longer
+# fence stay content.
+FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})\s*(\S*)")
+BLOCKQUOTE_RE = re.compile(r"^(?:\s{0,3}>\s?)+")
 INLINE_CODE_RE = re.compile(r"`([^`]+)`")
 
 
 def load_tree(gcx_bin: str) -> dict:
-    result = subprocess.run(
-        [gcx_bin, "--agent", "help-tree"],
-        capture_output=True, text=True, timeout=60,
-    )
+    try:
+        result = subprocess.run(
+            [gcx_bin, "--agent", "help-tree"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except FileNotFoundError:
+        sys.exit(f"error: gcx binary not found: '{gcx_bin}' (pass --gcx-bin)")
     if result.returncode != 0:
         sys.exit(f"error: '{gcx_bin} --agent help-tree' failed: {result.stderr.strip()}")
     return json.loads(result.stdout)
@@ -59,35 +75,64 @@ def children_of(node: dict) -> dict:
 
 
 def extract_invocations(text: str):
-    """Yield (line_number, invocation_tail) pairs for every gcx call."""
-    in_fence = False
+    """Return (line_number, invocation_tail) pairs for every gcx call."""
+    results = []
+    fence = None  # (marker_char, marker_len, is_shell) while inside a fence
     pending = ""  # accumulates backslash-continued lines inside fences
     pending_start = 0
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        if FENCE_RE.match(line):
-            in_fence = not in_fence
+
+    def scan(buf: str, lineno: int):
+        for m in GCX_RE.finditer(buf):
+            results.append((lineno, m.group(1)))
+
+    def flush_pending():
+        nonlocal pending
+        if pending:
+            scan(pending, pending_start)
             pending = ""
+
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        line = BLOCKQUOTE_RE.sub("", raw)  # blockquoted fences still count
+        fence_match = FENCE_RE.match(line)
+
+        if fence is None:
+            if fence_match:
+                info = fence_match.group(2).lower()
+                marker = fence_match.group(1)
+                fence = (marker[0], len(marker), info in SHELL_INFO)
+                continue
+            for span in INLINE_CODE_RE.findall(raw):
+                scan(span, lineno)
             continue
-        if in_fence:
-            if line.lstrip().startswith("#"):
-                # Shell comments are prose; matching them yields false
-                # positives like "no gcx and no auth header".
-                pending = ""
-                continue
-            if pending:
-                line = pending + " " + line.strip()
-                lineno = pending_start
-            if line.rstrip().endswith("\\"):
-                pending = line.rstrip()[:-1].rstrip()
-                pending_start = lineno
-                continue
-            pending = ""
-            for m in GCX_RE.finditer(line):
-                yield lineno, m.group(1)
+
+        marker_char, marker_len, is_shell = fence
+        if (fence_match and fence_match.group(1)[0] == marker_char
+                and len(fence_match.group(1)) >= marker_len
+                and not fence_match.group(2)):
+            flush_pending()
+            fence = None
+            continue
+        if not is_shell:
+            continue
+        if line.lstrip().startswith("#"):
+            # Shell comments are prose; matching them yields false positives
+            # like "no gcx and no auth header".
+            flush_pending()
+            continue
+        # Trailing comments are prose too ("... # run after a gcx upgrade").
+        line = re.sub(r"(?<=\s)#.*$", "", line)
+        if pending:
+            line = pending + " " + line.strip()
         else:
-            for span in INLINE_CODE_RE.findall(line):
-                for m in GCX_RE.finditer(span):
-                    yield lineno, m.group(1)
+            pending_start = lineno
+        if line.rstrip().endswith("\\"):
+            pending = line.rstrip()[:-1].rstrip()
+            continue
+        pending = ""
+        scan(line, pending_start)
+
+    flush_pending()
+    return results
 
 
 def validate_invocation(tail: str, root: dict):

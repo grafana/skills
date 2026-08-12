@@ -26,7 +26,7 @@ Remote pipeline distribution to Alloy collectors via OpAMP — author once, targ
 
 ## Execution paths
 
-The API examples in this skill use `curl` against the Fleet Management host, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - gcx resolves the Fleet Management endpoint and auth from your stack context, so no `$BASE`/`$TOKEN` setup:
+The API examples in this skill use `curl` against the Fleet Management host, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed, prefer it - gcx resolves the Fleet Management endpoint for you, so no `$BASE`/`$TOKEN` setup. The `fleet` commands need Grafana Cloud credentials: one-time `gcx cloud login` after the stack login (refer to the `gcx-cli` skill):
 
 - `gcx fleet pipelines list` / `create` / `update <name>` - pipeline CRUD with matchers
 - `gcx fleet collectors list` - collector inventory including `remoteConfigStatus` (the APPLIED/FAILED check)

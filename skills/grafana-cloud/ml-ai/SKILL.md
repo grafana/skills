@@ -22,7 +22,7 @@ The API examples in this skill use `curl`, which always works. When the [gcx CLI
 
 - `gcx api /api/plugins/grafana-ml-app/resources/ml/v1/<path>` - forecast and outlier job CRUD (no dedicated ML commands yet; same paths as the curl examples below)
 - `gcx api /api/plugins/grafana-sift-app/resources/sift/v1/investigations` - trigger Sift investigations
-- `gcx assistant prompt` / `gcx assistant investigations` - drive Grafana Assistant directly
+- `gcx assistant prompt` / `gcx assistant investigations list` - drive Grafana Assistant directly
 - `gcx metrics query '<EXPR>'` - the verification queries (`ml_forecast_upper`, `ml_outlier_score`) without datasource-proxy plumbing
 - `gcx help-tree assistant` - discover the Assistant subcommands
 

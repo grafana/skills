@@ -26,7 +26,7 @@ Homebrew (macOS and Linux):
 brew install grafana/grafana/gcx
 ```
 
-Pre-built binaries for Linux/macOS/Windows are on the [releases page](https://github.com/grafana/gcx/releases); verify against the `checksums.txt` asset.
+Pre-built binaries for Linux/macOS/Windows are on the [releases page](https://github.com/grafana/gcx/releases); verify against the release's `gcx_<version>_checksums.txt` asset.
 
 Verify the install:
 
@@ -52,6 +52,12 @@ gcx config list-contexts  # all configured stacks
 
 Every subsequent gcx call inherits the active context's auth - never add `Authorization` headers yourself. Switch stacks with `gcx config use-context <name>` or per-call `--context <name>`. If a call returns "Invalid or expired token", re-run `gcx login`.
 
+Some Grafana Cloud product areas sit behind the Grafana Cloud API rather than the stack API - Fleet Management (`gcx fleet`), Adaptive Metrics/Logs/Traces (`gcx metrics adaptive` and friends), and Synthetic Monitoring. Those need Grafana Cloud credentials in addition to the stack login. If a command fails with "Cloud credentials not configured", run:
+
+```bash
+gcx cloud login    # or: export GRAFANA_CLOUD_TOKEN=<token>
+```
+
 ## The execution ladder
 
 When a task needs to call a Grafana API, prefer paths in this order:
@@ -73,7 +79,7 @@ Use `gcx help-tree <area>` for discovery. Don't dump `gcx commands` output into 
 
 - `-o json` forces inline JSON output (opts out of the large-response spill-to-file envelope).
 - `--json field1,field2` selects fields without jq; `--json list` discovers available fields.
-- `--jq '<expr>'` applies a jq transformation server-side of your pipeline.
+- `--jq '<expr>'` applies a jq transformation to the JSON output, no jq install needed.
 - gcx prints a one-line `hint:` to stderr on most calls; redirect with `2>/dev/null` when piping stdout into parsers.
 
 ## Bundled agent skills

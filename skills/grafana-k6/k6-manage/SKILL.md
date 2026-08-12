@@ -176,8 +176,7 @@ memory suggests:
 
 - **The Grafana plugin proxy rewrites `Content-Type: multipart/...`
   to `application/json`.** `gcx api` itself forwards your
-  `-H "Content-Type: ..."` header correctly (visible in
-  `-vvv` traces), but the upstream plugin proxy
+  `-H "Content-Type: ..."` header correctly, but the upstream plugin proxy
   rewrites multipart Content-Types to JSON before they reach k6's
   API. The net effect: endpoints that require multipart bodies —
   notably `POST /cloud/v6/projects/{id}/load_tests` for test
@@ -841,7 +840,7 @@ Exit codes: `0` pass, `99` threshold fail, anything else = script/runtime error.
 |--------------------------------------------------------------------------------------|----------------------------------------------------------------------|-----|
 | `401 "Invalid or expired token — run gcx login to refresh"`                          | gcx OAuth session expired                                            | `gcx login --context <ctx>` |
 | `403 / 404` on a path that looks right                                               | Forgot the doubled `cloud/cloud/` for a REST endpoint                | Use `…/resources/cloud/cloud/v{N}/…` |
-| `415 unsupported media type` on script PUT                                           | Missing `-H "Content-Type: application/octet-stream"`                | Add it; pass `-vvv` to `gcx api` to inspect the request |
+| `415 unsupported media type` on script PUT                                           | Missing `-H "Content-Type: application/octet-stream"`                | Add it (re-check shell quoting); if the 415 persists, fall back to direct curl (§1.2) |
 | Script PUT returns 200 but doesn't take effect                                       | `updated` timestamp does not bump on script change                   | Verify by sha256 of GET (§5 step 7) |
 | Run status `passed` but checks failed                                                | Zero-observation thresholds report as pass; `check()` alone never fails a run | Add `'checks{check:<name>}': ['rate==1.0']`; in catch blocks, `check(null, {"script completed":()=>false})` to force an observation |
 | Loki query returns nothing for a recent run                                          | `X-K6TestRun-Id` header missing                                      | Always pass `-H "X-K6TestRun-Id: <run_id>"` on log queries |

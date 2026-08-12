@@ -19,7 +19,7 @@ Three pillars: external probing (Synthetic Monitoring), load testing (k6 Cloud),
 
 ## Execution paths
 
-The API examples in this skill use `curl` and the `k6` CLI, which always work. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no SM or k6 tokens are pasted into commands:
+The API examples in this skill use `curl` and the `k6` CLI, which always work. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - no SM or k6 tokens are pasted into commands. The `synthetic-monitoring` commands need Grafana Cloud credentials: one-time `gcx cloud login` after the stack login:
 
 - `gcx synthetic-monitoring checks create` / `list` / `status` / `timeline <id>` - check CRUD plus pass/fail history without the separate SM token
 - `gcx synthetic-monitoring probes list` - probe IDs for the `probes:[...]` field
