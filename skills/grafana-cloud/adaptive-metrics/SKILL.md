@@ -17,6 +17,16 @@ Aggregation rules that pre-shrink high-cardinality metrics before storage — di
 - For the verification queries: the metrics query endpoint (`prometheus-prod-XX.grafana.net`) uses HTTP basic auth — `<metrics_user>` (numeric stack/instance ID) plus a token with `metrics:read` — not the Bearer key
 - Access to **Home → Adaptive Metrics** in the Cloud portal
 
+## Execution paths
+
+The API examples in this skill use `curl` against `adaptive-metrics.grafana.net`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - gcx routes to the Adaptive Metrics API and handles both auth schemes (Bearer for rules, basic auth for the verification queries) from one login:
+
+- `gcx metrics adaptive recommendations list` / `diff <metric>` / `apply` - review and apply recommendations
+- `gcx metrics adaptive rules list` / `create` / `delete <metric>` - hand-written rules and rollback
+- `gcx metrics adaptive exemptions list` / `create` - keep metrics out of aggregation
+- `gcx metrics query 'count({__name__="<METRIC>"})'` - the before/after series-count verification
+- `gcx help-tree metrics adaptive` - discover every Adaptive Metrics subcommand
+
 ## Common Workflows
 
 ### 1. Review + apply auto-recommendations

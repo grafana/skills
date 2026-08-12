@@ -16,6 +16,16 @@ ML alerting + automated RCA + LLM-powered Assistant in one Grafana Cloud stack.
 - API token with `plugins:write` for ML / Sift / LLM-plugin endpoints
 - For Dynamic Alerting: at least 14 days (ideally 90d) of history for the metric you want to forecast
 
+## Execution paths
+
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no tokens are pasted into commands:
+
+- `gcx api /api/plugins/grafana-ml-app/resources/ml/v1/<path>` - forecast and outlier job CRUD (no dedicated ML commands yet; same paths as the curl examples below)
+- `gcx api /api/plugins/grafana-sift-app/resources/sift/v1/investigations` - trigger Sift investigations
+- `gcx assistant prompt` / `gcx assistant investigations` - drive Grafana Assistant directly
+- `gcx metrics query '<EXPR>'` - the verification queries (`ml_forecast_upper`, `ml_outlier_score`) without datasource-proxy plumbing
+- `gcx help-tree assistant` - discover the Assistant subcommands
+
 ## Common Workflows
 
 ### 1. Forecasting alert with Dynamic Alerting

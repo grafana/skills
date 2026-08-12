@@ -14,6 +14,15 @@ description: >
 
 Indexes only metadata (labels), not full log content — dramatically cheaper than full-text search systems.
 
+## Execution paths
+
+LogQL in this skill runs anywhere - Grafana Explore, `logcli`, or the Loki HTTP API. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it for running queries from the terminal - it goes through your Grafana stack's Loki datasource, so there's no endpoint or auth plumbing:
+
+- `gcx logs query '{app="nginx"} |= "error"' --since 1h` - run any log query below
+- `gcx logs metrics 'sum(rate({env="prod"} |= "error" [5m])) by (app)'` - run any metric query below
+- `gcx logs labels` and `gcx logs series` - label and stream discovery
+- `gcx help-tree logs` - discover every logs subcommand (including Adaptive Logs)
+
 ## LogQL Quick Reference
 
 ### Log Stream Selector (required in every query)

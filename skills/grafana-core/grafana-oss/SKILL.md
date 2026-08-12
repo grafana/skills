@@ -8,6 +8,16 @@ description: Configure Grafana OSS — provisions dashboards from YAML, sets up 
 
 > **Docs**: https://grafana.com/docs/grafana/latest.md
 
+## Execution paths
+
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed (refer to the `gcx-cli` skill), prefer it - gcx works against self-hosted Grafana 12+ too (`gcx login local --server http://localhost:3000 --token <token>`), and handles auth on every call:
+
+- `gcx dashboards get <name>` / `search [query]` - the "did provisioning pick it up" verification
+- `gcx datasources list` / `health <name>` - datasource health checks without hand-built curls
+- `gcx resources pull` / `push` / `validate` - Grafana resources as code (dashboards, datasources, and more)
+- `gcx api /api/serviceaccounts` (and any other endpoint) - service accounts, annotations, plugin health
+- `gcx help-tree resources` (or `dashboards`, `datasources`) - discover every subcommand
+
 ## Common Workflows
 
 ### Provisioning dashboards from disk
