@@ -17,9 +17,7 @@ description: >
 # k6 Trend Analysis
 
 Analyze metric trends across multiple runs of a Grafana Cloud k6 test to catch
-degradation early -- before thresholds breach and alerts fire. A P95 at 380ms
-against a 500ms threshold is "green" today, but if it was 250ms a month ago,
-something is quietly degrading; this skill surfaces that drift and recommends action.
+degradation early -- before thresholds breach and alerts fire.
 
 ## What this skill does NOT do
 
@@ -78,8 +76,8 @@ For each run, record:
 - `note` (if present -- users sometimes annotate runs)
 
 Discard runs that did not reach `finished` status (aborted, timed_out, etc.)
-unless the user specifically asks about them -- incomplete runs produce
-unreliable metric aggregates.
+unless the user specifically asks about them (see
+[references/gotchas.md](references/gotchas.md)).
 
 Count the runs. If fewer than 3 usable runs exist, inform the user that trend
 analysis is not meaningful with this sample size and suggest widening the window
@@ -174,9 +172,15 @@ queries into groups of 50 run IDs and merge the results.
 
 ### Step 6: Extract thresholds
 
-Thresholds define what "passing" means. Fetch the test's current script (via
-k6-manage Section 5) and parse the `export const options = { thresholds: {...} }`
-block. Record each threshold's:
+Thresholds define what "passing" means. Fetch the test's current script and
+parse the `export const options = { thresholds: {...} }` block (see k6-manage
+Section 5 for the archive-format handling):
+
+```bash
+gcx --context <ctx> api /api/plugins/k6-app/resources/cloud/cloud/v6/load_tests/<load_test_id>/script > /tmp/script_current
+```
+
+Record each threshold's:
 - Metric name and selector (e.g., `http_req_duration{name:homepage}`)
 - Condition (e.g., `p(95)<500`)
 - Whether `abortOnFail` is set
@@ -190,11 +194,9 @@ still get trend analysis; they just won't have headroom calculations.
 ### Step 7: Compute trends
 
 **Detect inflection points and rule out script changes deterministically.**
-Before drawing conclusions about a regression, look for discontinuities in
-the metric values -- sudden jumps or drops that align across multiple
-metrics on the same date. When you spot one, do not guess whether the
-script changed. The run-bundled script endpoint gives a deterministic
-answer in seconds:
+Look for discontinuities in the metric values -- sudden jumps or drops that
+align across multiple metrics on the same date. When you spot one, don't
+guess whether the script changed -- check:
 
 1. **sha256-diff the bundled scripts at the boundary.** Fetch the snapshot
    from the last "before" run and the first "after" run via
@@ -225,13 +227,9 @@ answer in seconds:
 
 3. **If the sha256 matches**, the script is byte-identical and the
    regression is external to the test (service-side, infrastructure, or
-   load-zone). This is high-confidence information -- carry it into Step 9
-   (service-side correlation) instead of leaving "did the test change?"
-   as an open question.
+   load-zone). Carry this into Step 9 (service-side correlation).
 
-This sha256 diff is a 5-second deterministic check that rules out a huge
-class of causes. Run it at every detected inflection, not just when the
-user asks.
+Run the diff at every detected inflection, not just when the user asks.
 
 For each metric, build a time-ordered series of (run_timestamp, value) pairs.
 Then compute:
@@ -322,86 +320,22 @@ the owning team.
 
 ### Step 10: Present the report
 
-Always present findings as a structured report. Never apply changes directly.
-
----
-
-## Report template
-
-Use this structure. Omit sections that don't apply (e.g., skip "Anomalies" if
-none were detected).
-
-```markdown
-# Trend Analysis: {test_name}
-
-**Test ID**: {test_id}
-**Analysis window**: {start_date} to {end_date} ({N} runs analyzed)
-**Overall health**: {Healthy | Watch | Degrading | Critical}
-
-## Run Summary
-
-| Period | Runs | Passed | Failed | Pass Rate |
-|--------|------|--------|--------|-----------|
-| First half | N | N | N | N% |
-| Second half | N | N | N | N% |
-
-## Metric Trends
-
-| Metric | Type | Current | Baseline | Change | Trend | Threshold | Headroom |
-|--------|------|---------|----------|--------|-------|-----------|----------|
-| http_req_duration (P95) | trend | 380ms | 250ms | +52% | Degrading | 500ms | 24% |
-| http_req_failed | rate | 0.8% | 0.3% | +167% | Degrading | 1% | 20% |
-| http_reqs | counter | 15,230 | 15,100 | +0.9% | Stable | - | - |
-
-## Flagged Issues
-
-### 1. {metric_name}: {classification}
-- **Current**: {value} | **Baseline**: {value} | **Change**: {pct}%
-- **Threshold**: {threshold} | **Headroom**: {pct}%
-- **Rate of change**: {pct}% per week
-- **Projected breach**: ~{N} weeks at current rate
-- **Anomalous runs**: {run_ids with dates, if any}
-
-## Threshold Recommendations
-
-| Metric | Current Threshold | Recommended | Rationale |
-|--------|-------------------|-------------|-----------|
-| http_req_duration | p(95)<500 | p(95)<420 | Current P95 is 380ms; tightening to 420ms gives 10% headroom from current performance while surfacing further degradation early |
-
-## Suggested Next Steps
-
-- [ ] **Investigate service side**: P95 latency has increased 52% -- consider
-      loading `debug-with-grafana` to check service health
-- [ ] **Deep-dive run {run_id}**: anomalous P95 spike on {date} -- consider
-      loading `k6-cloud-investigate-test` for this run
-- [ ] **Tighten thresholds**: 2 metrics have >30% headroom that could be
-      tightened -- consider loading `k6-test-maintenance` to apply changes
-```
-
-## Overall health classification
-
-Derive the overall health from the worst-case metric:
-- **Healthy**: all metrics stable or improving, headroom comfortable or adequate
-- **Watch**: at least one metric degrading but headroom still adequate
-- **Degrading**: at least one metric degrading with thin headroom
-- **Critical**: at least one metric has breached its threshold, or multiple
-  metrics are degrading with thin headroom
+Always present findings as a structured report -- never apply changes
+directly. Use the structure and the overall-health classification in
+[references/report-template.md](references/report-template.md).
 
 ---
 
 ## Threshold recommendations
 
-When recommending threshold changes, follow these principles:
+When recommending threshold changes:
 
-- **Only tighten, never loosen** unless the user asks. Loosening thresholds
-  masks problems.
-- **Target 10-20% headroom** above the recent P95 of the metric. Enough room
-  for normal variance but tight enough to catch real degradation.
+- **Only tighten, never loosen** unless the user asks.
+- **Target 10-20% headroom** above the recent P95 of the metric.
 - **Use the second-half mean as the baseline**, not the single most recent run
   (which could be an outlier).
-- **Respect the user's intent**: if thresholds are currently very loose
-  (>100% headroom), they may be intentionally permissive. Mention the
-  opportunity to tighten but don't push hard -- the user knows their context.
+- **Respect the user's intent**: thresholds with >100% headroom may be
+  intentionally permissive -- mention the opportunity to tighten, don't push.
 - **Consider grouped thresholds**: if the test uses tag-based thresholds
   (e.g., `http_req_duration{name:homepage}`), recommend per-endpoint
   thresholds where the trends differ between endpoints.
@@ -410,10 +344,7 @@ When recommending threshold changes, follow these principles:
 
 ## Gotchas
 
-| Issue | Detail |
-|-------|--------|
-| **Zero-observation thresholds** | A threshold with zero observations passes by default in k6. If a metric appears to pass but has no data, flag it -- the threshold is not actually being evaluated. |
-| **Metric type changes across runs** | If a metric's type changed between runs (e.g., script refactor), the multi-run aggregate endpoint uses the latest type. Earlier runs queried with the wrong method return empty. Flag this if detected. |
-| **Incomplete runs skew trends** | Aborted or timed-out runs typically have shorter durations and fewer iterations, producing unrepresentative metric values. Exclude them by default. |
-| **LG resource metrics** | `load_generator_cpu_percent` and `load_generator_file_handles` trending up may indicate the test is outgrowing its load generator allocation, not that the service is degrading. Call this out separately. |
-| **Rate metric direction** | For `ratio`-type rate metrics (like check pass rates), "degrading" means the value is *decreasing* (fewer passes), which is the opposite direction from latency metrics. |
+Read [references/gotchas.md](references/gotchas.md) before interpreting
+results -- it covers zero-observation thresholds, metric-type changes across
+runs, incomplete-run skew, load-generator resource metrics, and rate-metric
+direction.
