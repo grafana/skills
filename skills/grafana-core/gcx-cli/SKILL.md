@@ -14,19 +14,19 @@ Other skills in this catalog reference gcx as the preferred execution path in th
 
 ## Install
 
-Quick install (Linux/macOS) - downloads the latest release, verifies the SHA-256 checksum, installs to `~/.local/bin`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/grafana/gcx/main/scripts/install.sh | sh
-```
-
 Homebrew (macOS and Linux):
 
 ```bash
 brew install grafana/grafana/gcx
 ```
 
-Pre-built binaries for Linux/macOS/Windows are on the [releases page](https://github.com/grafana/gcx/releases); verify against the release's `gcx_<version>_checksums.txt` asset.
+Or download a version-pinned pre-built binary for Linux/macOS/Windows from the [releases page](https://github.com/grafana/gcx/releases) and verify it against the release's `gcx_<version>_checksums.txt` asset.
+
+There's also a convenience installer that downloads the latest release, verifies its SHA-256 checksum, and installs to `~/.local/bin`. The script itself is fetched unpinned from `main`, so review it before running:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/grafana/gcx/main/scripts/install.sh | sh
+```
 
 Verify the install:
 
