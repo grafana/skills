@@ -49,7 +49,7 @@ Follow these steps in order. Present findings at the end -- do not apply changes
 The user provides one of:
 - A GCk6 URL (extract the load test ID from the path)
 - A test ID directly
-- A test name (search via `gcx k6 tests list` or the v6 API)
+- A test name (search via `gcx k6 load-tests list` or the v6 API)
 
 Confirm the test exists by fetching its metadata. Record the `id`, `name`,
 `project_id`, and `created` timestamp. You will need the load test ID (not a

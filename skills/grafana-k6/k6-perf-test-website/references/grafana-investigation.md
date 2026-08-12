@@ -149,8 +149,8 @@ This is the high-value signal for CPU-bound bottlenecks. Be
 careful to scope to the run window only:
 
 ```bash
-gcx pyroscope query-profile -d <pyro-uid> \
-  --query '<profile-type>{<label>="<value>"}' \
+gcx profiles query -d <pyro-uid> '{<label>="<value>"}' \
+  --profile-type <profile-type> \
   --from <iso> --to <iso>
 ```
 
