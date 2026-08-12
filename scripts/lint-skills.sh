@@ -451,7 +451,7 @@ for skill in $SKILL_FILES; do
     # Secret-exposing gcx flags: they print raw credentials/tokens into
     # logs and agent context.
     if echo "$skill_body" | grep -qE -- '--(insecure-)?log-http-payload'; then
-      error "gcx '--insecure-log-http-payload' logs raw credentials — debug with -v/-vv/-vvv instead"
+      error "gcx '--insecure-log-http-payload' (formerly '--log-http-payload') logs raw credentials — debug with -v/-vv/-vvv instead"
     fi
     if echo "$skill_body" | grep -E 'gcx .*config view' | grep -q -- '--raw'; then
       error "'gcx config view --raw' prints sensitive values — use the default redacted output"
