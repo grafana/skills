@@ -112,6 +112,7 @@ Open-source LGTM observability stack — Loki, Tempo, Prometheus/Mimir, and Pyro
 | [prometheus](skills/grafana-lgtm/prometheus) | Metrics with Prometheus — PromQL, alerting, recording rules, and Mimir |
 | [mimir](skills/grafana-lgtm/mimir) | Scalable long-term metrics storage with Grafana Mimir — architecture and operations |
 | [pyroscope](skills/grafana-lgtm/pyroscope) | Continuous profiling with Grafana Pyroscope — flame graphs, diff views, and language support |
+| [profilecli-insights](skills/grafana-lgtm/profilecli-insights) | Query live Pyroscope profiles with profilecli and correlate hot functions with checked-out source code |
 
 ### grafana-plugins
 

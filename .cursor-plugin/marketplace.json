@@ -98,6 +98,7 @@
         "./skills/grafana-lgtm/tempo",
         "./skills/grafana-lgtm/prometheus",
         "./skills/grafana-lgtm/pyroscope",
+        "./skills/grafana-lgtm/profilecli-insights",
         "./skills/grafana-lgtm/mimir"
       ]
     },
