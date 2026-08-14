@@ -52,7 +52,7 @@ jobs:
         # Pin includes scoreBar fix for rubric scale 1-5 (tesslio/skill-review#18).
         # Older pins crash with String.prototype.repeat RangeError when a
         # dimension score exceeds the old hardcoded max of 3.
-        uses: tesslio/skill-review@5aefcf5e500ae13a9af904383dbb914c6c3a50e4 # main @ 2026-07-22
+        uses: tesslio/skill-review@7e7ea574722a6d72752aa5a316bcc813d06b7cd2 # main @ 2026-07-31
         with:
           comment: 'false'
           # Block PR merge on scores below 75. Anthropic best-practice baseline
