@@ -16,16 +16,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Validate JSON syntax
-        run: |
-          echo "Validating Claude Code marketplace.json..."
-          jq empty .claude-plugin/marketplace.json
-
-          echo "Validating Cursor marketplace.json..."
-          jq empty .cursor-plugin/marketplace.json
-
-          echo "Validating Codex marketplace.json..."
-          jq empty .agents-plugin/marketplace.json
+      - name: Validate marketplace manifests
+        run: ./scripts/validate-marketplace.sh
 
       - name: Validate marketplace structure
         run: |
