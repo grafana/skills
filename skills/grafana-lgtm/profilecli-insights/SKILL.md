@@ -4,7 +4,7 @@ license: Apache-2.0
 compatibility: Requires profilecli and pprof, or Go with go tool pprof, on PATH plus access to a Pyroscope-compatible server.
 description: >
   Query live Pyroscope profiles with profilecli, analyze them with pprof, and correlate hot functions with checked-out source code. Use when the user asks to investigate a service with a configured Pyroscope server, profilecli, and pprof.
-allowed-tools: Bash(profilecli *), Bash(pprof *), Bash(go tool pprof *), Bash(git *), Read, Grep, Glob
+allowed-tools: Bash(profilecli:*) Bash(pprof:*) Bash(go tool pprof:*) Bash(git:*) Bash(mktemp:*) Read Grep Glob
 ---
 
 # Profilecli Insights
@@ -23,7 +23,15 @@ profilecli --version
 
 If it is not found, instruct the user to download it from `https://github.com/grafana/pyroscope/releases/latest/download/`.
 
-Check whether `pprof` is on PATH. If it is not, use `go tool pprof` for every later `pprof` command.
+Select the command to use for all later profile analysis:
+
+```bash
+if command -v pprof >/dev/null 2>&1; then
+  PPROF=(pprof)
+else
+  PPROF=(go tool pprof)
+fi
+```
 
 ## Step 2: Verify connectivity and data exists
 
@@ -72,11 +80,13 @@ If the question does not clearly map to a service, show the available services, 
 Query the target service with an appropriate type discovered in Step 2. The query must be a valid ProfileQL label selector.
 
 ```bash
+PROFILE="$(mktemp -t profilecli-insights)"
+
 profilecli query merge \
   --query '<QUERY>' \
   --profile-type <PROFILE_TYPE> \
   --from now-1h --to now \
-  --output pprof=/tmp/<temporary-unique-file-name>.pb.gz -f
+  --output "pprof=${PROFILE}" -f
 ```
 
 If the output is empty, broaden the range to `--from now-6h` or `--from now-24h`.
@@ -84,7 +94,7 @@ If the output is empty, broaden the range to `--from now-6h` or `--from now-24h`
 Analyze the generated profile:
 
 ```bash
-pprof -lines -top -cum /tmp/<temporary-unique-file-name>.pb.gz
+"${PPROF[@]}" -lines -top -cum "${PROFILE}"
 ```
 
 ## Step 5: Identify hot functions
