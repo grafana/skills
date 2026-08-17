@@ -149,6 +149,7 @@ Skills for working with k6 open-source load testing.
 | [k6-cloud-investigate-test](skills/grafana-k6/k6-cloud-investigate-test) | Investigate a specific Grafana Cloud k6 test or run — describe the script, list run history, pull metrics and logs, and identify pass/fail root cause |
 | [k6-trend-analysis](skills/grafana-k6/k6-trend-analysis) | Analyze Grafana Cloud k6 test-run trends over time — detect metric drift, compute threshold headroom, and recommend when to tighten thresholds |
 | [k6-test-maintenance](skills/grafana-k6/k6-test-maintenance) | Maintain and improve existing k6 scripts — threshold tightening, version migration, service-change fixes, refactoring, and best-practice audits |
+| [k6-browser-test](skills/grafana-k6/k6-browser-test) | Generate a k6/browser test from a plain-language user journey — explores the live site to resolve real selectors (getByRole/getByLabel/getByText), then writes a functional or load test with expect() assertions, screenshots, and Core Web Vitals thresholds |
 
 ### grafana-datasources
 
