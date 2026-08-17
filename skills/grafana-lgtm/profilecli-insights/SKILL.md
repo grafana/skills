@@ -38,7 +38,7 @@ fi
 Run a series query to validate the connection and discover profile types:
 
 ```bash
-profilecli query series --label-names=__profile_type__
+profilecli query series --label-names=__profile_type__ --output json
 ```
 
 If this succeeds, parse the JSON output and retain the available `__profile_type__` values. Common types include:
@@ -46,7 +46,7 @@ If this succeeds, parse the JSON output and retain the available `__profile_type
 - `process_cpu:cpu:nanoseconds:cpu:nanoseconds` (CPU)
 - `memory:alloc_space:bytes:space:bytes` (memory allocations)
 - `memory:inuse_space:bytes:space:bytes` (memory in-use)
-- `goroutine:goroutines:count:goroutine:count` (goroutines)
+- `goroutine:goroutine:count:goroutine:count` (goroutines)
 - `mutex:contentions:count:contentions:count` (mutex contention)
 - `block:contentions:count:contentions:count` (block contention)
 
@@ -68,7 +68,7 @@ Then stop and wait for the user to configure the environment and for the initial
 List available services and find ones that correlate with the checked-out repository:
 
 ```bash
-profilecli query series --query '{}' --label-names service_repository --label-names service_name
+profilecli query series --query '{}' --label-names service_repository --label-names service_name --output json
 ```
 
 Parse the JSON output for `service_name` and `service_repository`. Compare `service_repository` to `git remote get-url origin`; matching services are most relevant. Match the user's question to one or more service names.
@@ -82,7 +82,7 @@ Query the target service with an appropriate type discovered in Step 2. The quer
 ```bash
 PROFILE="$(mktemp -t profilecli-insights)"
 
-profilecli query merge \
+profilecli query profile \
   --query '<QUERY>' \
   --profile-type <PROFILE_TYPE> \
   --from now-1h --to now \
