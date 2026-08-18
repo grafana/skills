@@ -136,3 +136,4 @@ Any tool supporting the [Agent Skills](https://agentskills.io) standard or the `
 - [Agent Skills Standard](https://agentskills.io)
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [Anthropic Skills Repository](https://github.com/anthropics/skills)
+- Security issues should be reported via [Grafana's security issue reporting page](https://grafana.com/legal/report-a-security-issue/) and not directly in this repository.
