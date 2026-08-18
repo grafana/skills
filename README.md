@@ -74,6 +74,7 @@ Core Grafana concepts — dashboards, visualization, PromQL, alerting, and telem
 | [alloy](skills/grafana-core/alloy) | Grafana Alloy OpenTelemetry collector — config language, components, and telemetry pipelines |
 | [beyla](skills/grafana-core/beyla) | Grafana Beyla eBPF auto-instrumentation for zero-code application observability |
 | [opentelemetry](skills/grafana-core/opentelemetry) | OpenTelemetry with the Grafana stack — SDK instrumentation, OTLP, and collectors |
+| [gcx-cli](skills/grafana-core/gcx-cli) | Install, authenticate, and use gcx — the Grafana CLI that other skills prefer for API calls |
 
 ### grafana-cloud
 

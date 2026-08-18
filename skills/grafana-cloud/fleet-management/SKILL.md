@@ -24,6 +24,16 @@ Remote pipeline distribution to Alloy collectors via OpAMP — author once, targ
 - **Matcher** — selector mapping a pipeline to collectors by attribute
 - **Attributes** — key/value labels on a collector (`env`, `team`, `region`)
 
+## Execution paths
+
+The API examples in this skill use `curl` against the Fleet Management host, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed, prefer it - gcx resolves the Fleet Management endpoint for you, so no `$BASE`/`$TOKEN` setup. The `fleet` commands need Grafana Cloud credentials: one-time `gcx cloud login` after the stack login (refer to the `gcx-cli` skill):
+
+- `gcx fleet pipelines list` / `create` / `update <name>` - pipeline CRUD with matchers
+- `gcx fleet collectors list` - collector inventory including `remoteConfigStatus` (the APPLIED/FAILED check)
+- `gcx fleet collectors get <id|name>` - one collector's attributes and status detail
+- `gcx fleet tenant get-limits` - tenant limits
+- `gcx help-tree fleet` - discover every Fleet Management subcommand
+
 ## Common Workflows
 
 ### 1. Author + validate + deploy a pipeline
