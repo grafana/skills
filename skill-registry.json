@@ -95,6 +95,12 @@
           "description": "Grafana Pyroscope continuous profiling including profile types, flame graphs, diff views, and language support. Use when working with Pyroscope, analyzing flame graphs, optimizing code performance, or integrating profiling with traces.",
           "path": "skills/grafana-lgtm/pyroscope",
           "tags": ["pyroscope", "profiling", "flame-graphs", "performance", "continuous-profiling"]
+        },
+        {
+          "name": "profilecli-insights",
+          "description": "Query live Pyroscope profiles with profilecli, analyze them with pprof, and correlate hot functions with checked-out source code. Use when investigating a configured Pyroscope service through /profilecli-insights.",
+          "path": "skills/grafana-lgtm/profilecli-insights",
+          "tags": ["pyroscope", "profilecli", "profiling", "pprof", "performance", "source-analysis"]
         }
       ]
     },
