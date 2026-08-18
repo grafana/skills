@@ -7,14 +7,15 @@ description: >-
   real, verified selectors (getByRole/getByLabel/getByText, etc.), dismisses
   cookie/consent banners, then writes a functional test
   using expect() from k6-testing.
-  Looks up k6/browser APIs and recommended practices via `k6 x docs`; validates
+  Looks up k6/browser APIs via `k6 x docs`; validates
   with `k6 run`. Use when the user wants to write, author, or generate a k6
   browser/UI test, test a web page or user flow with a real browser, or says
   things like "write a browser test for…", "test this login/checkout/search
   flow with k6", "click through my site and verify…", or describes navigating a
-  site in prose. For a full multi-test load/performance suite with SLOs and
-  protocol+browser HAR recording use k6-perf-test-website; for HTTP/protocol
-  (non-browser) tests use the general k6 skills.
+  site in prose. For a full load/performance suite with SLOs and HAR
+  recording use k6-perf-test-website; for HTTP/protocol (non-browser) tests
+  use the general k6 skills; for browser or scripted checks in Grafana Cloud
+  Synthetic Monitoring, use synthetic-monitoring-checks.
 license: Apache-2.0
 metadata:
   author: grafana-labs
@@ -41,6 +42,9 @@ user never has to supply a CSS selector, XPath, or `data-testid`.
 - **Not in scope:** protocol/HTTP tests, HAR recording, or multi-test load
   suites with SLOs. If the user wants a full performance suite, hand off to
   **k6-perf-test-website**. If they want HTTP/gRPC/WS, use the general k6 skills.
+  If the script is destined for Grafana Cloud Synthetic Monitoring (a browser
+  or scripted check), also reference the **synthetic-monitoring-checks** skill —
+  it owns the SM check lifecycle (create/update, cadence, probe locations).
 
 ## Prerequisites
 
