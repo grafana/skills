@@ -66,6 +66,7 @@
         "./skills/grafana-cloud/synthetic-monitoring-checks",
         "./skills/grafana-cloud/ml-ai",
         "./skills/grafana-cloud/app-observability",
+        "./skills/grafana-cloud/frontend-session-rca",
         "./skills/grafana-cloud/database-observability",
         "./skills/grafana-cloud/private-connectivity",
         "./skills/grafana-cloud/cost-management",

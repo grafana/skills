@@ -65,6 +65,12 @@
           "description": "Author Grafana Cloud Synthetic Monitoring checks — deep guidance for k6 scripted and browser checks, check-type selection, assertions that fail probe_success, secrets, and deployment via UI/API/Terraform. Use when writing a synthetic check, monitoring a login or checkout flow, converting a k6 script into a check, or validating a user journey in production. Not for load testing (use the grafana-k6 plugin).",
           "path": "skills/grafana-cloud/synthetic-monitoring-checks",
           "tags": ["grafana-cloud", "synthetic-monitoring", "k6", "browser-checks", "uptime", "checks", "terraform"]
+        },
+        {
+          "name": "frontend-session-rca",
+          "description": "Diagnoses a Grafana Frontend Observability (RUM) session from a gcx dump: health, ranked problems, likely cause, and fixes. Use when explaining, diagnosing, or analysing a Faro web or mobile session.",
+          "path": "skills/grafana-cloud/frontend-session-rca",
+          "tags": ["grafana-cloud", "frontend-observability", "rum", "faro", "session", "web-vitals", "gcx"]
         }
       ]
     },
