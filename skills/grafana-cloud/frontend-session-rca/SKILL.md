@@ -26,13 +26,19 @@ Diagnose one real-user session from a `gcx` dump. First answer is dump-only. Do 
 
 Required — do **not** fetch until all three are present:
 
-- **app id**
-- **session id**
-- **datasource UID** (`-d`) — Grafana datasource UID, not `loki` or `pinot`
+- **app id**: `<app_id>`
+- **session id**: `<session_id>`
+- **datasource UID** (`-d`): `<datasource_uid>` — Grafana datasource UID, not `loki` or `pinot`
 
-Take them from the prompt or pasted Frontend Observability session context. If any required field is missing, **ask the user and stop**. Do not guess ids. Do not pick a datasource for them (you may mention `gcx datasources list` so they can choose a Loki or Pinot UID). In that same ask, say the time-range default below so they can override it in one reply.
+Optional:
 
-Optional: Grafana stack URL, `--app-type web|mobile`, time range.
+- **grafana URL**: `<grafana_url>`
+- **from**: `<from>`
+- **to**: `<to>`
+
+Take them from the prompt, pasted Frontend Observability session context, or filled placeholders above. If a required value is still a `<…>` token or missing, **ask the user and stop**. Do not guess ids. Do not pick a datasource for them (you may mention `gcx datasources list` so they can choose a Loki or Pinot UID). In that same ask, say the time-range default below so they can override it in one reply.
+
+Optional also: `--app-type web|mobile`.
 
 Time range is **not** required. If the user did not give `--from`/`--to` or `--since`, tell them:
 
@@ -71,11 +77,11 @@ Use the current context `grafana.server`. Do not print tokens.
 Always `--save` so stdout is a small artifact receipt (path only), not the dump.
 
 ```bash
-gcx frontend sessions get <session-id> \
-  --app <app-id> \
-  -d <datasource-uid> \
+gcx frontend sessions get <session_id> \
+  --app <app_id> \
+  -d <datasource_uid> \
   --since 1d \
-  --save /tmp/session-<session-id>.txt
+  --save /tmp/session-<session_id>.txt
 ```
 
 - `-d/--datasource` is required (Grafana datasource UID). Do not pass `loki` or `pinot` as the value. gcx infers the type from the datasource.
