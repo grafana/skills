@@ -61,7 +61,7 @@ command -v gcx && gcx frontend sessions get -h
 Unauthenticated:
 
 ```bash
-gcx login --server <grafana-stack-url>
+gcx login --server <grafana_url>
 ```
 
 Grafana base URL (for deep links), if the user did not paste one:
