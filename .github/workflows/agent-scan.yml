@@ -33,7 +33,7 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           # Pin uv itself so the runner environment stays deterministic.
-          version: "0.12.3"
+          version: "0.12.9"
 
       - name: Get Snyk token from Vault
         id: get-secrets
