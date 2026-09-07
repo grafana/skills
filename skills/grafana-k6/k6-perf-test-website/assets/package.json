@@ -8,6 +8,6 @@
   },
   "devDependencies": {
     "har-to-k6": "0.14.15",
-    "playwright": "1.62.1"
+    "playwright": "1.63.0"
   }
 }
