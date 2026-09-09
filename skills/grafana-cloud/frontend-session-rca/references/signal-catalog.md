@@ -6,8 +6,8 @@ Classify from the dump only. Prefer an explicit `rating` on a vital over recompu
 
 | Outcome | When |
 |---|---|
-| **error** | Any `kind=exception`, HTTP status `0` or `5xx`, or mobile ANR |
-| **degraded** | Poor web vitals, slow cold/warm start, frozen/slow frames or `app.jank`, HTTP `4xx`, error-level logs, rage clicks — and no error-tier issue |
+| **error** | Any `kind=exception`, HTTP status `0` or `5xx`, mobile ANR, or frozen frames (`type=app_frozen_frame` / `value_frozen_frames`) |
+| **degraded** | Poor web vitals, slow cold/warm start, slow frames (`type=app_frames_rate` / `value_slow_frames`) or `app.jank`, HTTP `4xx`, error-level logs, rage clicks — and no error-tier issue |
 | **healthy** | Journey present, no exceptions, no failed HTTP, web vitals and mobile startup/jank good or absent |
 | **unknown** | Empty dump, or too little signal to judge |
 
