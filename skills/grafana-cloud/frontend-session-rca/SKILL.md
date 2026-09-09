@@ -71,7 +71,7 @@ gcx config view -o json
 
 Use the current stack `grafana.server`. Do not print tokens.
 
-Then infer Loki vs Pinot from the UID (`gcx datasources get <datasource_uid>`). Type `loki` → `--since 1d` (session Loki queries time out at 60s). Type `startree-pinot-datasource` (kind `pinot`) → `--since 7d`. If they already gave `--from`/`--to` or `--since`, keep that window.
+Then infer Loki vs Pinot from the UID (`gcx datasources get <datasource_uid>`). Use the Type field as a **kind**: `loki` (or Type contains `loki`) → `--since 1d` (session Loki queries time out at 60s). `pinot` (or Type contains `pinot`) → `--since 7d`. Do not require a specific plugin id. If they already gave `--from`/`--to` or `--since`, keep that window.
 
 ## 3. Fetch the session
 
