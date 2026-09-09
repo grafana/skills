@@ -107,7 +107,7 @@ Never paste the dump into the user-visible reply.
 ```markdown
 ## Session overview
 - App, session id, web or mobile, duration (`session_start` event → last event in this window as `session_end`; end is not a Faro event)
-- Environment: browser/OS or device/SDK, geo, app version, user if present
+- Environment: browser/OS or device/SDK, geo, app version, user id/username if present (avoid email/PII unless the user explicitly asks)
 - Outcome: **healthy** | **degraded** | **error** | **unknown**
 
 ## What the user did
