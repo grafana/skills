@@ -14,8 +14,7 @@ description: >
   exceptions, ANR, or a web or mobile RUM session — even if they do not say
   "session narrator" or "frontend-session-rca". Do not use this skill to instrument
   an app (Faro Web, React Native, Flutter, native OpenTelemetry) — use
-  `app-observability` for Faro Web setup
-  in this grafana-cloud plugin.
+  `app-observability` for Faro Web setup instead.
 ---
 
 # Frontend Observability session RCA
