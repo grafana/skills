@@ -69,4 +69,4 @@ Pick the remediations that match **this** dump. Do not list the whole catalog.
 | Rage clicks | Same `action_name` / view cluster | Unresponsive control; correlate with INP or a following exception |
 | Missing replay | No `session_replay_start` | Session not sampled for recording — do not claim video exists |
 
-If `traceID` is present on a problem, include the **id** in that item. Offer Tempo / `gcx traces get` as a **follow-up** for that id only — not a URL on every error.
+If `traceID` is present on a problem, include the **id** in that item. Offer Tempo / `gcx traces get -d <tempo_uid> <trace_id>` as a **follow-up** for that id only — not a URL on every error.

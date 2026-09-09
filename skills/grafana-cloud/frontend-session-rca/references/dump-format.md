@@ -35,7 +35,7 @@ gcx already infers web vs mobile when `--app-type` is omitted. Do not re-derive 
 
 ## Events
 
-Rows are **oldest first** (ascending timestamp). Pinot: `ORDER BY "timestamp" ASC`. Loki: `direction=forward`, then sorted by timestamp.
+Rows are **oldest first** (ascending timestamp). Pinot: `ORDER BY "timestamp" ASC`. Loki: fetched then sorted by timestamp.
 
 **Loki:** one line per event: timestamp, then the log line with envelope keys stripped. Parse `kind`, `name` (events), `type` (measurements), status, URL, message, `traceID` / `trace_id`. Measurement values are `value_<key>` — the same keys the SDKs put in `values` (`value_lcp`, `value_appStartDuration`, `value_coldStart`, `value_slow_frames`, `value_frozen_frames`, …).
 
@@ -51,4 +51,4 @@ Rows are **oldest first** (ascending timestamp). Pinot: `ORDER BY "timestamp" AS
 
 Replay offset: `t = problemTimeMs - session_replay_start` (both ms). If `t < 0`, skip the `?t=` query param.
 
-The dump has no truncated / incomplete flag (`--no-truncate` is table-column display only). Narrate the events gcx returned for that `--from`/`--to`. Empty dump or gcx error: stop (see the skill). Do not invent events.
+The dump has no truncated / incomplete flag (`--no-truncate` is table-column display only). Narrate the events gcx returned for that `--since` or `--from`/`--to`. Empty dump or gcx error: stop (see the skill). Do not invent events.

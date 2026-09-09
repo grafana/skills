@@ -2,7 +2,7 @@
 
 Use Tempo URLs **only after the user picks a trace follow-up**. Session Replay `?t=` belongs on a **problem row** when a recording exists (seek to that problem’s timestamp). Do not invent Tempo Explore JSON.
 
-`grafanaBase` is the stack origin with no trailing slash (from pasted session context or `gcx config view` → current context `grafana.server`). Sanitize: only `https:` (or `http:` for local Grafana). Never `javascript:` or `data:`.
+`grafanaBase` is the stack origin with no trailing slash (from pasted session context or `gcx config view` → current stack `grafana.server`). Sanitize: only `https:` (or `http:` for local Grafana). Never `javascript:` or `data:`.
 
 Do not invent URLs. Omit a link when the field it needs is missing.
 
@@ -36,7 +36,7 @@ Do not call a replay manifest API. Do not claim the recording exists unless the 
 
 Keep `traceID` on the problem row as evidence. After the user asks to inspect it:
 
-- Prefer `gcx traces get <id>` (that dump id only).
+- Prefer `gcx traces get -d <tempo_uid> <trace_id>` (that dump id only). `-d` is required unless `datasources.tempo` is already in the gcx context.
 - A Tempo Explore URL only if the Tempo datasource UID is already known (pasted context or `gcx` datasource list). Never guess a UID. Never invent Explore pane JSON. If the UID is unknown, tell them to open **Explore → Tempo** and paste the id.
 
 ## What not to link
