@@ -26,7 +26,7 @@ Typical fields (names vary slightly Loki vs Pinot; use whatever is present):
 | `user_id`, `user_username`, `user_email` | User if set |
 | `session_id` | Session id |
 | `session_start` | Timestamp of the Faro **`session_start` event** (`kind=event`, `name=session_start`). That is a real lifecycle event. It is **not** necessarily the first row in the events block (other telemetry can precede it). If that event is missing from this `--from`/`--to` window, say so — do not invent a start from the first dump row. |
-| `session_end` | **Not** a Faro event. Last event timestamp in this `--from`/`--to` window (`max(timestamp)` of what gcx returned). Do not treat “last event time ≠ `session_end`” as truncation — they are the same. |
+| `session_end` | **Not** a Faro event. It is the last event timestamp in this `--from`/`--to` window (`max(timestamp)` of what gcx returned). |
 | `session_replay_start` | Epoch ms of `faro.session_recording.started`. Empty = no replay. |
 
 Pinot metadata may print as tables. Loki metadata is `key=value` lines. Treat both as a single bag of fields.
