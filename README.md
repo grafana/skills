@@ -43,6 +43,12 @@ npx skills add grafana/skills
 
 This writes skills into `.cursor/skills/` in your project so Cursor's agent can load them.
 
+To install only the Frontend Observability session skill:
+
+```bash
+npx skills add grafana/skills --skill frontend-session-rca
+```
+
 > Cursor's built-in **Add Rule → Remote Rule (GitHub)** flow is not compatible with this repository. That importer only accepts Cursor Project Rules (`.mdc` files under `.cursor/rules/`), and the Grafana Skills repo follows the [Agent Skills](https://agentskills.io) standard instead (`SKILL.md` files under `skills/`).
 
 ### Codex and other Agent Skills tools
@@ -87,6 +93,7 @@ Grafana Cloud — fleet management, cloud integrations, cost optimization, and A
 | [cloud-integrations](skills/grafana-cloud/cloud-integrations) | Connect AWS, Azure, and other cloud providers to Grafana Cloud |
 | [infrastructure](skills/grafana-cloud/infrastructure) | Infrastructure monitoring — Kubernetes, host/container metrics, and cloud integrations |
 | [app-observability](skills/grafana-cloud/app-observability) | Application Observability (APM), Frontend Observability (Faro), and AI Observability |
+| [frontend-session-rca](skills/grafana-cloud/frontend-session-rca) | Diagnose a Frontend Observability session from a `gcx` dump — health, ranked problems, cause, and fixes |
 | [database-observability](skills/grafana-cloud/database-observability) | Query-level performance insights for MySQL and PostgreSQL |
 | [adaptive-metrics](skills/grafana-cloud/adaptive-metrics) | Reduce metrics cost with Adaptive Metrics aggregation rules and cardinality management |
 | [cost-management](skills/grafana-cloud/cost-management) | Grafana Cloud cost monitoring, attribution, usage alerts, and optimization |
