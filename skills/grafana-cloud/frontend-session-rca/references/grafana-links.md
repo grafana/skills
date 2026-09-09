@@ -16,13 +16,15 @@ Do not invent URLs. Omit a link when the field it needs is missing.
 
 ## Session replay (web only)
 
-Requires metadata `session_replay_start` (epoch ms) and a problem (or navigation) timestamp in ms.
+Requires metadata `session_replay_start` and a problem (or navigation) timestamp. gcx does not always print those as epoch ms: Loki is usually 19-digit ns; Pinot is RFC3339.
+
+Convert **both** to epoch ms first ([dump-format.md](dump-format.md) Timestamps). Then:
 
 ```
 {grafanaBase}/a/grafana-sessionreplay-app/app/{appId}/session/{sessionId}?t={offsetMs}
 ```
 
-`offsetMs = problemTimeMs - session_replay_start`. Skip `?t=` when offset is not a finite number ≥ 0.
+`offsetMs = problemTimeMs - replayStartMs`. Skip `?t=` when either conversion fails or offset is not a finite number ≥ 0. Treating a Loki ns value as ms makes `t` negative.
 
 Skip this link when:
 

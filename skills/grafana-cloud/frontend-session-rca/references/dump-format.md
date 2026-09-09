@@ -27,7 +27,7 @@ Typical fields (names vary slightly Loki vs Pinot; use whatever is present):
 | `session_id` | Session id |
 | `session_start` | Timestamp of the Faro **`session_start` event** (`kind=event`, `name=session_start`). That is a real lifecycle event. It is **not** necessarily the first row in the events block (other telemetry can precede it). If that event is missing from this `--from`/`--to` window, say so — do not invent a start from the first dump row. |
 | `session_end` | **Not** a Faro event. It is the last event timestamp in this `--from`/`--to` window (`max(timestamp)` of what gcx returned). |
-| `session_replay_start` | Epoch ms of `faro.session_recording.started`. Empty = no replay. |
+| `session_replay_start` | Timestamp of `faro.session_recording.started` (Loki: usually 19-digit ns; Pinot: RFC3339). Empty = no replay. Convert to ms before `?t=` (see Timestamps). |
 
 Pinot metadata may print as tables. Loki metadata is `key=value` lines. Treat both as a single bag of fields.
 
@@ -49,6 +49,6 @@ Rows are **oldest first** (ascending timestamp). Pinot: `ORDER BY "timestamp" AS
 - 19-digit integer → epoch **ns** (divide by 1e6 for ms)
 - RFC3339 → parse to ms
 
-Replay offset: `t = problemTimeMs - session_replay_start` (both ms). If `t < 0`, skip the `?t=` query param.
+Replay offset: convert both timestamps to ms (rules above), then `t = problemTimeMs - replayStartMs`. If conversion fails or `t < 0`, skip the `?t=` query param.
 
 The dump has no truncated / incomplete flag (`--no-truncate` is table-column display only). Narrate the events gcx returned for that `--since` or `--from`/`--to`. Empty dump or gcx error: stop (see the skill). Do not invent events.

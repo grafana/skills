@@ -108,7 +108,7 @@ Never paste the dump into the user-visible reply.
 
 ```markdown
 ## Session overview
-- App, session id, web or mobile, duration (`session_start` event → last event in this window as `session_end`; end is not a Faro event)
+- App, session id, web or mobile, duration (`session_start` → last event as `session_end` only if `session_start` is in this dump; if that event is missing, say so — do not use the first row as start. `session_end` is not a Faro event)
 - Environment: browser/OS or device/SDK, geo, app version, user id/username if present (avoid email/PII unless the user explicitly asks)
 - Outcome: **healthy** | **degraded** | **error** | **unknown**
 
@@ -125,7 +125,7 @@ Ranked list. Each item:
 - What happened (exception type/message, HTTP status+URL, web vital or mobile cold/warm start / jank, …)
 - Lead-up: the 1–3 events immediately before it
 - `traceID` if that row has one (the id only — not a Tempo URL)
-- Session Replay at this timestamp — only web + `session_replay_start`; `?t=` = problem time − recording start ([grafana-links.md](references/grafana-links.md)). Omit on mobile, if there is no recording, or if `t < 0`.
+- Session Replay at this timestamp — only web + `session_replay_start`; convert both times to ms, then `?t=` ([grafana-links.md](references/grafana-links.md)). Omit on mobile, if there is no recording, or if `t < 0`.
 
 ## Likely cause
 One or two sentences citing dump evidence. If several independent issues, say so — do not force a single root cause.
