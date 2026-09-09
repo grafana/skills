@@ -9,10 +9,10 @@ Do not invent URLs. Omit a link when the field it needs is missing.
 ## Session in Frontend Observability
 
 ```
-{grafanaBase}/a/grafana-kowl-app/apps/{appId}/sessions/{sessionId}
+{grafanaBase}/a/grafana-kowalski-app/apps/{appId}/sessions/{sessionId}
 ```
 
-`appId` and `sessionId` are the values passed to `gcx frontend sessions get`.
+`appId` and `sessionId` are the values passed to `gcx frontend sessions get`. Do not invent a `?tracesQuery=` pane JSON; the session page works without it.
 
 ## Session replay (web only)
 
