@@ -300,10 +300,23 @@ Then create the check (pick one):
 - **UI**: Testing & synthetics → Synthetics → Add new check → *k6 scripted* / *k6
   browser* → paste script → select probes + frequency → **Test** (runs once without
   saving) → Save.
+- **[gcx](https://github.com/grafana/gcx)**: `gcx synthetic-monitoring checks test -f
+  check.yaml` is the CLI equivalent of the UI's Test button — runs once against real
+  probes without saving. Then `gcx synthetic-monitoring checks create -f check.yaml` to
+  save. Both accept the script as plain text; gcx base64-encodes it for you. Pull an
+  existing check back out as a starting template with `gcx synthetic-monitoring checks
+  get <ID> -o yaml --decode-script` (omit the flag and you get raw base64).
 - **API or Terraform**: see [`references/api-and-terraform.md`](references/api-and-terraform.md).
   Key gotchas: API `frequency`/`timeout` are **milliseconds** and `settings.scripted.script`
   / `settings.browser.script` are **base64-encoded**; Terraform takes the plain script
   via `file()`.
+
+Pick by ownership, not preference: if checks are already Terraform-managed (drift
+detection, multi-environment, PR review), create and update through Terraform —
+hand-editing state it owns causes drift on the next `apply`. Otherwise, for one-off or
+agent-driven authoring, gcx or the UI are faster. Either way, gcx is still the tool for
+live inspection, ad-hoc testing, and status/timeline investigation, regardless of which
+tool provisioned the check.
 
 ## Verify it works, and rollback
 
@@ -329,7 +342,8 @@ A healthy first execution: `probe_success == 1` from every probe, all
 prebuilt dashboard (Synthetics → check → View dashboard) showing logs for each execution.
 Browser checks should additionally show `probe_browser_web_vital_*` series.
 
-**Rollback**: set the check's `enabled: false` (UI toggle, API update, or Terraform) to
+**Rollback**: set the check's `enabled: false` (UI toggle, `gcx synthetic-monitoring
+checks update`, API update, or Terraform) to
 stop executions without losing history; delete the check only when you no longer need
 its configuration. Alerting: start with `alertSensitivity` / the default alert rules on
 `probe_success` — see the [`testing`](../testing/SKILL.md) skill for alert rule examples.
