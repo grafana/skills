@@ -24,6 +24,8 @@ skills/                            # All skills, grouped by plugin
       assets/                      # Optional: templates, schemas, data files
 template/SKILL.md                  # Starter template for contributors
 scripts/lint-skills.sh             # Validates SKILL.md files
+scripts/validate-gcx-invocations.py  # Validates gcx commands in skills against the pinned gcx version
+.gcx-version                       # gcx version the CI drift check downloads and validates against
 ```
 
 **Key architecture:**
@@ -94,6 +96,28 @@ plugin-root-relative paths when installed via Claude Code:
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/skills/grafana-core/your-skill/scripts/your-script"
 ```
+
+## gcx and "Execution paths"
+
+Skills that call Grafana APIs include an `## Execution paths` section near the top of the body,
+following a three-step ladder (see `skills/grafana-core/gcx-cli`, and e.g. `skills/grafana-cloud/fleet-management`
+or `skills/grafana-core/dashboarding` for the block shape):
+
+1. A dedicated [gcx](https://github.com/grafana/gcx) command when one exists (e.g. `gcx slo definitions list`)
+2. `gcx api <path>` for Grafana HTTP API endpoints with no dedicated command — still gcx auth, no pasted tokens
+3. The complete curl path, kept accurate, for users and agents without gcx
+
+Rules:
+
+- gcx is the preferred path, never a hard dependency — every skill must keep working without it
+- This repo owns product knowledge; the gcx repo owns CLI-coupled workflow skills (embedded in the binary).
+  Where topics overlap, link to the gcx skill by name (e.g. `investigate-alert`, `oncall-triage`,
+  `manage-dashboards`) instead of duplicating it
+- Never embed `gcx commands` output (use `gcx help-tree <area>` for discovery) and never use
+  secret-exposing flags (`--insecure-log-http-payload`, `gcx config view --raw`) — `lint-skills.sh` enforces both
+- CI validates every gcx invocation in skill markdown against the gcx version pinned in `.gcx-version`
+  (`scripts/validate-gcx-invocations.py`, run by `.github/workflows/validate-gcx.yml`). When bumping the pin,
+  fix whatever drift the validator reports in the same PR
 
 ## Skill Writing Guidelines
 

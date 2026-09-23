@@ -20,6 +20,17 @@ Three products that share the same OTLP + Mimir / Loki / Tempo / Pyroscope plumb
 - For APM: app instrumented with OTel SDK; for Frontend: a web app + Faro app key; for AI: Python ≥ 3.10
 - Grafana Alloy as the local OTLP receiver (recommended)
 
+## Execution paths
+
+The examples in this skill use `curl` and Explore queries, which always work. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no tokens are pasted into commands:
+
+- `gcx appo11y services list` / `get <service>` - the Service Inventory check from the terminal
+- `gcx appo11y services map <service>` - service-map edges (the missing-edges debug)
+- `gcx appo11y settings get` / `update` - App Observability plugin settings
+- `gcx traces query '{resource.service.name="my-api"}'` - the "spans landed in Tempo" verification
+- `gcx metrics query 'sum by (job) (rate(traces_spanmetrics_calls_total{service_name="my-api"}[5m]))'` - the spanmetrics verification
+- `gcx help-tree appo11y` - discover every App Observability subcommand
+
 ## Common Workflows
 
 ### 1. Stand up APM — Alloy receiver → Grafana Cloud + verify

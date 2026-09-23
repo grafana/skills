@@ -12,7 +12,7 @@
     {
       "name": "grafana-core",
       "source": "./",
-      "description": "Skills for core Grafana concepts — dashboards, panels, PromQL, visualization, alerting, Alloy, Beyla, and OpenTelemetry",
+      "description": "Skills for core Grafana concepts — dashboards, panels, PromQL, visualization, alerting, Alloy, Beyla, OpenTelemetry, and the gcx CLI",
       "version": "0.1.0",
       "category": "grafana",
       "tags": [
@@ -23,7 +23,8 @@
         "alloy",
         "beyla",
         "opentelemetry",
-        "alerting"
+        "alerting",
+        "gcx"
       ],
       "skills": [
         "./skills/grafana-core/dashboarding",
@@ -33,7 +34,8 @@
         "./skills/grafana-core/beyla",
         "./skills/grafana-core/opentelemetry",
         "./skills/grafana-core/alerting-irm",
-        "./skills/grafana-core/skill-authoring"
+        "./skills/grafana-core/skill-authoring",
+        "./skills/grafana-core/gcx-cli"
       ]
     },
     {

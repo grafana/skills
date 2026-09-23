@@ -17,6 +17,16 @@ PromQL returns either an **instant vector**, a **range vector**, or a **scalar**
 - A Prometheus / Mimir / Grafana Cloud endpoint to query (`/api/v1/query` or via Grafana Explore)
 - The PromQL pattern library in [`references/patterns.md`](references/patterns.md)
 
+## Execution paths
+
+The validation examples in this skill use `curl` against a Prometheus endpoint, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - it runs queries through your Grafana stack's datasources, so there's no endpoint URL or basic-auth plumbing:
+
+- `gcx metrics query '<EXPR>' --since 1h` - run and validate a PromQL expression
+- `gcx metrics series '<SELECTOR>'` - check a metric exists and is actively scraped
+- `gcx metrics labels` - list label names or values
+- `gcx metrics cardinality label-names` / `label-values` - the cardinality-hunting playbook
+- `gcx help-tree metrics` - discover every metrics subcommand
+
 ## Common Workflows
 
 ### 1. Write + validate a query

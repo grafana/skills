@@ -18,7 +18,7 @@ The content unique to this skill is:
 
 ## Core principles
 
-1. **Read before write.** Always GET the script before any PUT. `gcx k6 load-tests update-script` is a *write* that replaces the live script with whatever file you pass — running it "just to see the URL it hits" has cost users their production scripts. If you need to learn URLs, run any non-mutating command with `-vvv --log-http-payload` instead.
+1. **Read before write.** Always GET the script before any PUT. `gcx k6 load-tests update-script` is a *write* that replaces the live script with whatever file you pass — running it "just to see the URL it hits" has cost users their production scripts. If you need to learn URLs, run any non-mutating command with `-vvv` instead.
 2. **Paginate when enumerating runs.** The `/test_runs` endpoint caps at 1000 rows and `gcx k6 runs list --limit 0` does not auto-follow `@nextLink`. Use the `gcx api` loop documented in `k6-manage` §3.
 3. **Verify date framing.** When the user says "last 7 days", "this week", "recent runs" — confirm the most-recent run's `created` actually falls in that window. Surface the gap if not.
 4. **`check()` doesn't fail runs; only `thresholds` do.** And thresholds with zero observations are reported as ✓ pass. See "Threshold semantics" below for the full deep dive; the per-check `checks` metric query in Step 5 catches both cases.
@@ -247,7 +247,7 @@ For the canonical gotcha list (auth expiry, doubled `cloud/cloud/`, 415 on scrip
 | Threshold reports ✓ pass but checks fail | Zero check observations; iteration aborted before `check()` ran | See "Threshold semantics" above |
 | `result: error` but the script logs/metrics look fine | Likely a platform abort (e.g. `processing_metrics` exceeded the 1h cap, `code 8016`). The execution itself completed normally. | Check `status_history[*].extra.code` on the run. Non-null platform code → not your code's fault. See "Threshold semantics" |
 | Investigating a past run by reading the current load-test script | Script may have been edited since the run executed — what you're reading isn't what ran | GET the run's *bundled* script via the per-run endpoint (`k6-manage` §5) and diff against the current load-test script before drawing conclusions |
-| Just overwrote the user's script | Invoked `update-script` to "see the URL" | Restore from the backup taken in Step 2. To learn URLs without writing, use `-vvv --log-http-payload` on any non-mutating command. |
+| Just overwrote the user's script | Invoked `update-script` to "see the URL" | Restore from the backup taken in Step 2. To learn URLs without writing, use `-vvv` on any non-mutating command. |
 | CLI `--iterations 1` breaks browser scenarios | Overrides scenario block entirely | Edit `iterations:` in-file with sed instead |
 
 ## Reference

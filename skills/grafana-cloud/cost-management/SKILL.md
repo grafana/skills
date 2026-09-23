@@ -16,6 +16,17 @@ Reduce metric / log / trace spend with Adaptive signals + cost-attribution label
 - Alloy (or Grafana Agent) ingesting telemetry, with API key in scope `metrics:write` + `logs:write` (+ `traces:write`)
 - Admin access to the stack to apply Adaptive recommendations
 
+## Execution paths
+
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - no tokens are pasted into commands. The `adaptive` commands need Grafana Cloud credentials: one-time `gcx cloud login` after the stack login:
+
+- `gcx metrics billing query '<EXPR>'` - billing/usage metrics (`grafanacloud_*`) without hunting for the usage datasource
+- `gcx metrics adaptive recommendations list` / `apply` - Adaptive Metrics (refer to the `adaptive-metrics` skill for the full workflow)
+- `gcx logs adaptive patterns list` and `gcx logs adaptive drop-rules list` / `create` - Adaptive Logs drop/sample rules
+- `gcx traces adaptive policies list` and `gcx traces adaptive recommendations list` / `apply <id>` - Adaptive Traces tail sampling
+- `gcx metrics cardinality label-names` - find the labels driving series growth
+- `gcx help-tree metrics adaptive` (or `logs adaptive`, `traces adaptive`) - discover every subcommand
+
 ## Common Workflows
 
 ### 1. Attribute cost to a team / service

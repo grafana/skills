@@ -12,6 +12,18 @@ description: Generate, validate, and review k6 test scripts — load, stress, sp
 
 ---
 
+## Execution paths
+
+Script authoring and validation below run through the `k6` CLI - no other tooling required. For the cloud steps, if the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), reuse its auth instead of pasting a token:
+
+```bash
+k6 cloud login --token "$(gcx k6 auth token)"
+```
+
+To manage k6 Cloud resources around the script (projects, load tests, runs, logs, metrics), refer to the `k6-manage` skill in this catalog - it's gcx-first with a complete curl fallback.
+
+---
+
 ## Step 1: Pick the right example file
 
 Read only the file that matches the user's request. Examples provide structural scaffolding — the correct scaffold, option shapes, and import patterns.
