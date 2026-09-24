@@ -1,7 +1,7 @@
 ---
 name: k6
 license: Apache-2.0
-description: Generate, validate, and review k6 test scripts — load, stress, spike, soak, smoke, breakpoint, functional, and protocol. Covers HTTP, WebSocket, gRPC, browser, all executors, thresholds, checks, custom metrics, the k6-testing library, k6 Cloud execution, and the xk6 extension ecosystem; uses the xk6-docs CLI (with grafana.com web fallback) for docs lookup and validates every script by running it. Use when writing, generating, validating, or debugging any k6 or load-test script (including plain-language asks like "load test this API" or "stress test my service"), choosing executors/scenarios, or setting thresholds. For end-to-end website performance suites use k6-perf-test-website; for documenting k6 itself use k6-docs.
+description: Generate, validate, and review k6 test scripts — load, stress, spike, soak, smoke, breakpoint, functional, and protocol. Covers HTTP, WebSocket, gRPC, browser, all executors, thresholds, checks, custom metrics, the k6-testing library, k6 Cloud execution, and the xk6 extension ecosystem; uses the xk6-docs CLI (with grafana.com web fallback) for docs lookup and validates every script by running it. Use when writing, generating, validating, or debugging any k6 or load-test script (including plain-language asks like "load test this API" or "stress test my service"), choosing executors/scenarios, or setting thresholds. For end-to-end website performance suites use k6-perf-test-website; for documenting k6 itself use k6-docs; for a browser/UI test authored from a plain-language user journey (selectors discovered by exploring the live site) use k6-browser-test.
 ---
 
 # k6 Script Generation
@@ -41,6 +41,8 @@ Read only the file that matches the user's request. Examples provide structural 
 Example files live in the `examples/` directory alongside this `SKILL.md`.
 
 **When the request matches multiple rows** (e.g. "browser" + "functional test"), prefer the row whose assertion style fits the intent. If the user says "functional test", "assert", "verify", or "expect", use `functional.js` even if the test involves a browser — it demonstrates `expect()` with auto-retrying browser matchers. Use `browser.js` for browser load/performance tests that don't emphasize correctness assertions.
+
+**Browser test from a plain-language journey?** If the user describes a browser flow in prose and the selectors aren't known yet — i.e. they must be discovered by driving the live site — defer to the **k6-browser-test** skill, which explores the live page to resolve real `getBy*` locators before writing the test. Use the browser rows above when the page structure and selectors are already known.
 
 ---
 

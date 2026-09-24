@@ -13,6 +13,8 @@ description: >
   practices to my script", "modernize my k6 test", or "the service changed and
   my test broke". Also trigger when another skill (k6-trend-analysis or
   k6-cloud-investigate-test) hands off with a recommendation to edit a script.
+  Maintains existing scripts; to author a new test use the k6 skill, or
+  k6-browser-test for a browser test.
 ---
 
 # k6 Test Maintenance
@@ -142,6 +144,11 @@ behavioral bug and propose one of these fixes.
 
 Determine the source before starting: a GCk6 test URL or ID is cloud-hosted; a
 file path is local.
+
+> **Authoring a new test, not maintaining one?** This skill improves scripts
+> that already exist. To write a **new** browser test from a plain-language
+> user journey (selectors discovered by exploring the live site), use the
+> **k6-browser-test** skill; for other new k6 scripts, use the **k6** skill.
 
 ## Workflows
 

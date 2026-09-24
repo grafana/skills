@@ -13,7 +13,10 @@ description: >
   traffic". Use this skill whenever the user mentions k6, load testing,
   stress testing, performance testing, or wants to validate a website
   under traffic — even if they don't explicitly use the word "test" or
-  ask for the specific outputs this skill produces.
+  ask for the specific outputs this skill produces. This skill is for a
+  full multi-test suite across several workflows; for a single browser test —
+  functional OR a browser load test measuring Web Vitals for one journey —
+  use k6-browser-test.
 ---
 
 # `k6-perf-test-website`
@@ -29,6 +32,12 @@ public website with k6. The skill produces:
 - A cross-platform load-generator monitor sidecar.
 - Optional Grafana-side investigation when the user owns the backend.
 - A structured Markdown report at the end.
+
+> **Just want one functional browser test from a plain-language journey?**
+> This skill builds a full, multi-test performance *suite*. For a single
+> `k6/browser` functional (or standalone browser load) test — with selectors
+> discovered by exploring the live site — use the **k6-browser-test** skill
+> instead.
 
 This skill enforces a few opinions you should not silently override:
 
