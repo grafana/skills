@@ -41,6 +41,8 @@ Every code example in k6 documentation **and release notes** must execute cleanl
 cd ~/path/to/k6
 
 # 2. Make sure you're on master at the latest commit (the contract is k6@master)
+#    First check for local work: if this prints anything, stop and ask the user before switching branches
+git status --porcelain
 git checkout master
 git pull
 
