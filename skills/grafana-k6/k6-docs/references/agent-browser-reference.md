@@ -11,7 +11,7 @@ which agent-browser
 
 If not installed:
 ```bash
-npm install -g agent-browser
+npm install -g agent-browser@0.38.1
 agent-browser install
 ```
 

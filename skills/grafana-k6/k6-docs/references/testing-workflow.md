@@ -72,6 +72,7 @@ Do NOT use ✅ or report PASS/SUCCESS/VERIFIED unless you actually ran `go run .
 k6 repository must be on `master` branch for testing:
 ```bash
 cd /path/to/k6
+git status --porcelain  # must print nothing; otherwise stop and ask the user before switching branches
 git checkout master
 git pull origin master
 ```

@@ -141,7 +141,7 @@ git diff main -- docs/sources/k6/next/ | grep '^\+' | grep 'grafana.com'
 
 ### Installation Fails
 
-If `npm install -g agent-browser` fails, check Node.js version:
+If `npm install -g agent-browser@0.38.1` fails, check Node.js version:
 
 ```bash
 node --version  # Should be 18.x or higher

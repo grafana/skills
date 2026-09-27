@@ -12,7 +12,7 @@ read -r REPLY
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Installing agent-browser..."
-    npm install -g agent-browser
+    npm install -g agent-browser@0.38.1
     agent-browser install
     echo "✓ agent-browser installed"
 else
