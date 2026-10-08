@@ -100,6 +100,7 @@
         "./skills/grafana-lgtm/prometheus",
         "./skills/grafana-lgtm/pyroscope",
         "./skills/grafana-lgtm/profilecli-insights",
+        "./skills/grafana-lgtm/performance-rca",
         "./skills/grafana-lgtm/mimir"
       ]
     },

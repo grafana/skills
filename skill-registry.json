@@ -107,6 +107,12 @@
           "description": "Query live Pyroscope profiles with profilecli, analyze them with pprof, and correlate hot functions with checked-out source code. Use when investigating a configured Pyroscope service through /profilecli-insights.",
           "path": "skills/grafana-lgtm/profilecli-insights",
           "tags": ["pyroscope", "profilecli", "profiling", "pprof", "performance", "source-analysis"]
+        },
+        {
+          "name": "performance-rca",
+          "description": "Investigates CPU, memory, and contention problems with Grafana Pyroscope profiles via the gcx CLI: compares affected and baseline workloads, locates changed application stacks, and tests root-cause hypotheses against symptom evidence. Use when a service shows high CPU, growing memory, lock contention, or a regression after a deploy.",
+          "path": "skills/grafana-lgtm/performance-rca",
+          "tags": ["pyroscope", "profiling", "root-cause-analysis", "performance", "regression", "gcx"]
         }
       ]
     },
