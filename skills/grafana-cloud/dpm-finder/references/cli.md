@@ -1,5 +1,7 @@
 # dpm-finder CLI flags
 
+Modification note (2026-10-11): updated filtering, relevant flags and interpretation of diagnostic estimates.
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-f`, `--format` | `csv` | Output format: `csv`, `text`, `txt`, `json`, `prom` |
@@ -8,6 +10,8 @@
 | `-l`, `--lookback` | `10` | Lookback window in minutes |
 | `--timeout` | `60` | API request timeout (s). Bump to 120+ for large stacks. |
 | `--cost-per-1000-series` | _(none)_ | Adds `estimated_cost` column |
+| `--include-histograms` | `false` | Include verified classic histogram component families |
+| `--no-series-detail` | `false` | Avoid retaining per-series labels in JSON/text output |
 | `-q`, `--quiet` | `false` | Suppress progress output |
 | `-v`, `--verbose` | `false` | Debug logging |
 | `-e`, `--exporter` | `false` | Run as Prometheus exporter |
@@ -41,9 +45,11 @@ docker run --rm --env-file .env -v $(pwd)/output:/app/output \
 
 ## Auto-excluded metrics
 
-- Histogram/summary components: `*_count`, `*_bucket`, `*_sum`
+- Verified classic histogram families with all `*_bucket`, `*_count`, and `*_sum` siblings, unless `--include-histograms` is set. Ambiguous suffixed metrics remain included.
 - Grafana internals: `grafana_*` prefix
-- Anything with aggregation rules defined in the cluster (HTTP 422 → skipped + logged)
+- Native histogram base metrics and Adaptive Metrics stored aggregated series remain included. Explicit aggregated-query 422 errors trigger a retry against stored series; unrelated 422 errors are logged and skipped.
+
+`dpm` is the maximum observed per-series sampling rate, not total metric DPM. `estimated_cost` uses the supplied rate and this maximum; it is not the provider's billing calculation. Interpret both alongside series detail, coverage exclusions and account usage evidence.
 
 ## Retry behavior
 
