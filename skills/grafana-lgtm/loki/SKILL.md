@@ -188,16 +188,16 @@ whenever an agent or script issues LogQL, and when queries are slow or hit `max_
 
 ### Workflow
 
-1. **Discover**: list label names, then values for the labels you will select on. Do not guess label names.
-2. **Size it**: call `/loki/api/v1/index/stats` (or `query_loki_stats` in the Grafana MCP server) for the selector and range. If it is more than a few GiB for an exploratory question, narrow it.
-3. **Rank services by volume with the index, not logs**: `/loki/api/v1/index/volume?query={cluster="prod"}&aggregateBy=labels&targetLabels=service_name`, or Logs Drilldown. If no volume tool exists, run at most ONE `sum by (service_name) (count_over_time({cluster="prod"}[15m]))` instant query.
+1. **Discover**: list label names, then values for the labels you will select on. Do not guess label names or values. If a label returns no values, say so and sample a few raw lines (`limit 5`, 15 minutes) to see how it is recorded.
+2. **Size it**: call `/loki/api/v1/index/stats` (or `query_loki_stats` in the Grafana MCP server) for the selector and range. If it is more than a few GiB for an exploratory question, narrow it. If you have no stats tool, say so and keep the range to 1 hour.
+3. **Rank services by volume with the index, not logs**: `/loki/api/v1/index/volume?query={cluster="prod"}&aggregateBy=labels&targetLabels=service_name`, or Logs Drilldown. If no volume tool exists, run at most ONE `sum by (service_name) (count_over_time({cluster="prod"}[15m]))` instant query. Keep that window at 15 minutes even when the question asks about a longer period; ranking by recent volume is enough to pick the service.
 4. **Query small**: last 1 hour, `limit 20`, one service. Widen last, and only for one service.
 
 Label, series, stats and volume calls read the index, not log lines, so they are exempt from the selector rules.
 
 ### Rules
 
-- **Selector**: include the labels that identify one service (for example `cluster`, `namespace`, `service_name`). Never select on `cluster` or `namespace` alone, or `{service_name=~".+"}`. Prefer `=` to `=~`.
+- **Selector**: include the labels that identify one service (for example `cluster`, `namespace`, `service_name`). Never select on `cluster` or `namespace` alone, or `{service_name=~".+"}`, except for the single 15-minute ranking fallback in step 3. Prefer `=` to `=~`.
 - **Range**: default 1 hour, 6 hours maximum without a reason, over 24 hours only with explicit approval.
 - **Pipeline order, cheapest first**: label matchers, then `|=`, then `|~`, then structured metadata and label filters, then parsers (`json`, `logfmt`, `pattern`, `regexp`), then filters on parsed fields.
 - **Structured metadata**: filter on it directly (`| event_name="x"`) instead of `| json | event_name="x"`. Do not parse a whole stream just to filter. Never filter `| json | __error__=""` over a whole service.
