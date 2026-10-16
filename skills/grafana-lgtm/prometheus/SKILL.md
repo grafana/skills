@@ -11,6 +11,17 @@ description: >
 
 > **Docs**: https://prometheus.io/docs/ | **Grafana Cloud Metrics**: https://grafana.com/docs/grafana-cloud/send-data/metrics/
 
+## Execution paths
+
+PromQL in this skill runs anywhere - Grafana Explore, the Prometheus UI, or `curl` against `/api/v1/query`. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it for running queries from the terminal - it goes through your Grafana stack's Prometheus datasource, so there's no endpoint or auth plumbing:
+
+- `gcx metrics query 'rate(http_requests_total[5m])' --since 1h` - run any query below
+- `gcx metrics series '<SELECTOR>'` and `gcx metrics labels` - series and label discovery
+- `gcx metrics metadata` - metric type and help text
+- `gcx metrics cardinality label-names` / `label-values` - find cardinality offenders
+- `gcx alert ruler groups list` - inspect datasource-managed recording/alerting rule groups
+- `gcx help-tree metrics` - discover every metrics subcommand
+
 ## PromQL Quick Reference
 
 ### Instant Vector Selectors

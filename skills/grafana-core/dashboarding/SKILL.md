@@ -17,6 +17,19 @@ Dashboards are JSON. Author once, push via API, share by `uid`.
 - `jq` for inspecting responses
 - The JSON-schema cheat sheet in [`references/json-schema.md`](references/json-schema.md)
 
+## Execution paths
+
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no tokens are pasted into commands:
+
+- `gcx dashboards search [query]` / `gcx dashboards get <name>` - find and fetch dashboard JSON
+- `gcx dashboards create -f <file>` / `gcx dashboards update <name> -f <file>` - push from a manifest
+- `gcx dashboards list-versions <name>` and `gcx dashboards versions restore <name> <version>` - version history
+- `gcx dashboards snapshot <name>` - render a PNG to visually verify the pushed dashboard
+- `gcx api <path>` - anything else (folders, datasource lookups)
+- `gcx help-tree dashboards` - discover every dashboard subcommand
+
+For dashboard GitOps and import workflows, gcx bundles its own `manage-dashboards`, `create-dashboard`, and `import-dashboards` skills (`gcx agent skills install`).
+
 ## Common Workflows
 
 ### 1. Push a new dashboard via the API + verify

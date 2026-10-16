@@ -17,6 +17,16 @@ Cost-efficient distributed tracing. Accepts OTLP / Jaeger / Zipkin / OpenCensus 
 - An OTLP-emitting app or `tempo-cli` for synthetic traffic
 - A Grafana stack with a Tempo datasource for querying
 
+## Execution paths
+
+The query examples in this skill use `curl` against Tempo's API, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it for querying - it goes through your Grafana stack's Tempo datasource, so there's no endpoint or `X-Scope-OrgID` plumbing:
+
+- `gcx traces query '{ resource.service.name = "frontend" && duration > 1s }'` - run any TraceQL below
+- `gcx traces get <TRACE_ID>` - fetch a full trace by ID
+- `gcx traces metrics '{ status = error } | rate() by (resource.service.name)'` - TraceQL metrics queries
+- `gcx traces labels` - attribute discovery
+- `gcx help-tree traces` - discover every traces subcommand
+
 ## Common Workflows
 
 ### 1. Stand up Tempo locally + verify ingestion
