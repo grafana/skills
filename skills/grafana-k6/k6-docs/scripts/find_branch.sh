@@ -9,6 +9,11 @@ fi
 
 FEATURE="$1"
 
+if [ -n "$(git status --porcelain)" ]; then
+    echo "Error: working tree has uncommitted changes; commit or stash them before switching branches." >&2
+    exit 1
+fi
+
 echo "Searching local branches..."
 LOCAL_BRANCH=$(git branch | grep -iF "$FEATURE" | head -1 | tr -d ' *')
 
