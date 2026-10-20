@@ -6,12 +6,16 @@ description: Find the Prometheus metrics that drive your Grafana Cloud bill. `dp
 
 # dpm-finder
 
+Modification note (2026-10-11): updated runtime filtering, Adaptive Metrics handling and cost-interpretation guidance.
+
 Grafana PS tool ranking Prometheus metrics by DPM with per-series breakdown. Source: https://github.com/grafana-ps/dpm-finder
 
 ## Prerequisites
 
 - Python 3.9+
 - A Grafana Cloud Prometheus endpoint URL + numeric stack ID + API key (`glc_…`, `metrics:read` scope)
+
+Current runtimes also use `adaptive-metrics-rules:read` to inspect applied aggregation rules. Without that scope, stored-series discovery and targeted Adaptive Metrics 422 fallback can still work; report unavailable rule evidence rather than requesting broader credentials automatically.
 
 ## Common Workflows
 
@@ -65,13 +69,15 @@ Limit to **max 3 concurrent** runs to avoid GCloud rate limits. Batch the stacks
 - **DPM** = max data points per minute across that metric's series
 - **series_count** = active time-series count for that metric
 - **series_detail[]** (JSON / text only) = per-label-combination DPM breakdown — use this to spot the offending label
-- Sort by DPM descending → noisiest metrics; combine with `--cost-per-1000-series` to prioritize by spend
+- Sorting by `dpm` finds the fastest-sampled individual series, not the metrics with the largest total sample volume. For example, 1,000 series at 1 DPM generate more samples than 10 series at 6 DPM, despite ranking lower on maximum DPM. The configured minimum DPM filter also excludes lower-rate metrics from the result.
+- Inspect `series_detail` to sum observed per-series sampling rates when available. Do not treat `max_dpm × series_count` as an exact total when sampling rates differ or series populations change.
+- Treat `--cost-per-1000-series` / `estimated_cost` as a diagnostic estimate, not an invoice prediction. Reconcile with the account's included DPM, billing-period usage and current [Grafana metrics pricing methodology](https://grafana.com/docs/grafana-cloud/platform/pricing-and-usage/metrics/).
 
 ## Troubleshooting
 
 - **401 / 403** — API key invalid or missing `metrics:read`; confirm `PROMETHEUS_USERNAME` is the numeric stack ID
 - **Timeouts** — bump `--timeout` to 120+ for stacks with thousands of metrics
-- **HTTP 422** — metric has aggregation rules; tool warns + skips automatically
+- **Adaptive Metrics HTTP 422** — current runtimes retry explicitly identified aggregated-query errors against stored aggregated series; unrelated 422 responses are logged and skipped
 - **Empty results** — lower `-m`; verify endpoint has no trailing path
 - **Connection errors** — exponential backoff retries up to 10 times; persistent failure usually = network/firewall
 
