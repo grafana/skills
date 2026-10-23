@@ -4,7 +4,8 @@ license: Apache-2.0
 description: >
   Grafana Loki log aggregation and LogQL query language. Covers LogQL syntax (log queries, metric queries,
   label matchers, line filters, parsers: json/logfmt/pattern/regexp/unpack, label filters, line_format),
-  Loki architecture, log ingestion via Alloy/Promtail/Fluent Bit, structured metadata, and Logs Drilldown.
+  Loki architecture, log ingestion via Alloy/Promtail/Fluent Bit, structured metadata, Logs Drilldown, and
+  cost-aware query efficiency (selector scoping, index stats, metrics instead of repeated scans).
   Use when writing LogQL queries, configuring Loki, troubleshooting log pipelines, or analyzing logs.
 ---
 
@@ -177,6 +178,39 @@ sum(rate({env="prod"}[5m])) by (service)
 ### Credential leak detection
 ```logql
 {namespace="prod"} |~ `https?://\w+:\w+@`
+```
+
+## Query Efficiency (cost-aware LogQL)
+
+Loki cost and latency follow **bytes read**, which the stream selector and time range decide. Line filters,
+parsers and label filters after the selector only reduce what is returned, not what is read. Apply this
+whenever an agent or script issues LogQL, and when queries are slow or hit `max_query_bytes_read` or fair-use limits.
+
+### Workflow
+
+1. **Discover**: list label names, then values for the labels you will select on. Do not guess label names or values. If a label returns no values, say so and sample a few raw lines (`limit 5`, 15 minutes) to see how it is recorded.
+2. **Size it**: call `/loki/api/v1/index/stats` (or `query_loki_stats` in the Grafana MCP server) for the selector and range. If it is more than a few GiB for an exploratory question, narrow it. If you have no stats tool, say so and keep the range to 1 hour.
+3. **Rank services by volume with the index, not logs**: `/loki/api/v1/index/volume?query={cluster="prod"}&aggregateBy=labels&targetLabels=service_name`, or Logs Drilldown. If no volume tool exists, run at most ONE `sum by (service_name) (count_over_time({cluster="prod"}[15m]))` instant query. Keep that window at 15 minutes even when the question asks about a longer period; ranking by recent volume is enough to pick the service.
+4. **Query small**: last 1 hour, `limit 20`, one service. Widen last, and only for one service.
+
+Label, series, stats and volume calls read the index, not log lines, so they are exempt from the selector rules.
+
+### Rules
+
+- **Selector**: include the labels that identify one service (for example `cluster`, `namespace`, `service_name`). Never select on `cluster` or `namespace` alone, or `{service_name=~".+"}`, except for the single 15-minute ranking fallback in step 3. Prefer `=` to `=~`.
+- **Range**: default 1 hour, 6 hours maximum without a reason, over 24 hours only with explicit approval.
+- **Pipeline order, cheapest first**: label matchers, then `|=`, then `|~`, then structured metadata and label filters, then parsers (`json`, `logfmt`, `pattern`, `regexp`), then filters on parsed fields.
+- **Structured metadata**: filter on it directly (`| event_name="x"`) instead of `| json | event_name="x"`. Do not parse a whole stream just to filter. Never filter `| json | __error__=""` over a whole service.
+- **Counting**: do not run `count_over_time` over days of logs for a recurring question. Use an existing metric or a recording rule from the ruler. For a trend, run ONE range query with a step, not one query per day, window or service.
+- **Range vs step**: `rate({...}[5m])` at `step=5m` reads each byte once. A `[1d]` window evaluated every minute re-reads the same data. `topk` still reads everything underneath it.
+- **Rejected queries**: on `max_query_bytes_read`, limits or timeouts, stop and narrow the selector or range. Do not retry the same query or split it to evade the limit.
+
+```logql
+# Good: scoped, line filter before parser, one service, 1h
+{cluster="prod", namespace="payments", service_name="api"} |= "response.sent" | json | status >= 500
+
+# Bad: whole namespace, parse everything just to filter
+{namespace="payments"} | json | __error__="" | status >= 500
 ```
 
 ## Sending Logs to Loki
