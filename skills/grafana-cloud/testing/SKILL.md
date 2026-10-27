@@ -17,6 +17,19 @@ Three pillars: external probing (Synthetic Monitoring), load testing (k6 Cloud),
 - k6 Cloud: a Grafana Cloud k6 token + projectID
 - Faro: a Faro app + write-token from **Frontend Observability → Apps**
 
+## Execution paths
+
+The API examples in this skill use `curl` and the `k6` CLI, which always work. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - no SM or k6 tokens are pasted into commands. The `synthetic-monitoring` commands need Grafana Cloud credentials: one-time `gcx cloud login` after the stack login:
+
+- `gcx synthetic-monitoring checks create` / `list` / `status` / `timeline <id>` - check CRUD plus pass/fail history without the separate SM token
+- `gcx synthetic-monitoring probes list` - probe IDs for the `probes:[...]` field
+- `gcx k6 projects list`, `gcx k6 load-tests list`, `gcx k6 runs list` - k6 Cloud resources
+- `k6 cloud login --token "$(gcx k6 auth token)"` - reuse gcx auth for the k6 CLI
+- `gcx frontend apps list` / `create` - Faro app management
+- `gcx help-tree synthetic-monitoring` (or `k6`, `frontend`) - discover every subcommand
+
+For deep k6 Cloud API work (runs, logs, metrics, script edits), refer to the `k6-manage` skill in this catalog - it's gcx-first with a complete curl fallback.
+
 ## Common Workflows
 
 ### 1. Create + verify a Synthetic HTTP check

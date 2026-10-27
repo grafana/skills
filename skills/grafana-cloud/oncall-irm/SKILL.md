@@ -30,6 +30,19 @@ description: Route alerts, run on-call rotations, and drive incidents in Grafana
 
 Flow: alert → integration → routing template → escalation chain → notifications → ack / resolve.
 
+## Execution paths
+
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no tokens are pasted into commands:
+
+- `gcx irm oncall integrations list` / `create` - integrations and their webhook URLs
+- `gcx irm oncall escalation-chains list` and `gcx irm oncall routes list` - chains and routing
+- `gcx irm oncall schedules create` / `get` and `gcx irm oncall schedules list-final-shifts <schedule-id>` - rotations and "who is on-call right now"
+- `gcx irm oncall alert-groups list` / `acknowledge` / `resolve` - alert-group lifecycle
+- `gcx irm incidents list` / `create` / `close` - the incident lifecycle
+- `gcx help-tree irm` - discover every IRM subcommand
+
+For a guided alert-group triage workflow, gcx bundles its own `oncall-triage` skill (`gcx agent skills install oncall-triage`).
+
 ## Common Workflows
 
 ### 1. Wire Alertmanager → IRM and verify routing

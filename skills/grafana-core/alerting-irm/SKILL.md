@@ -8,6 +8,19 @@ description: Configure Grafana Alerting, Incident Response Management (IRM), and
 
 > **Docs**: https://grafana.com/docs/grafana/latest/alerting.md
 
+## Execution paths
+
+The API examples in this skill use `curl`, which always works. When the [gcx CLI](https://github.com/grafana/gcx) is installed and logged in (refer to the `gcx-cli` skill), prefer it - auth is handled by `gcx login`, so no tokens are pasted into commands:
+
+- `gcx alert contact-points list` / `create` / `update` - contact-point CRUD
+- `gcx alert notification-policies get` / `set` - the routing tree
+- `gcx alert rules list` and `gcx alert groups list` - rule state, health, and evaluation status
+- `gcx slo definitions list` / `push` and `gcx slo definitions status` - SLO management
+- `gcx api <path>` - any other Grafana HTTP API endpoint (silences, provisioning)
+- `gcx help-tree alert` - discover every alerting subcommand
+
+For a guided alert-investigation workflow, gcx bundles its own `investigate-alert` and `slo-check-status` skills (`gcx agent skills install`) - use those instead of re-deriving the steps here.
+
 ## Common Workflows
 
 ### Provisioning a new alert end-to-end

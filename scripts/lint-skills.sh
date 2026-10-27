@@ -16,6 +16,7 @@
 #   12. Description trigger phrase check ("Use when")
 #   13. Scripts in skills/*/scripts/ are executable
 #   14. Supply chain security: unpinned package/image versions in code examples
+#   15. gcx usage hygiene: no secret-exposing flags, no command-table dumps
 #
 # Usage:
 #   ./scripts/lint-skills.sh [directory ...]
@@ -439,6 +440,35 @@ for skill in $SKILL_FILES; do
   ')
   if [ -n "$pip_install_unpinned" ]; then
     error "pip install without pinned version — use 'pip install pkg==x.y.z' to prevent supply chain attacks"
+  fi
+
+  # ------------------------------------------------------------------
+  # 15. gcx usage hygiene
+  #     The gcx-cli skill itself is exempt: it documents these flags in
+  #     order to ban them.
+  # ------------------------------------------------------------------
+  if [ "$skill_name" != "gcx-cli" ]; then
+    # Join backslash-continued lines first so flags on follow-up lines are
+    # not missed (same treatment as the helm check below).
+    gcx_joined=$(echo "$skill_body" | awk '{
+      if (/\\$/) { sub(/\\$/, ""); printf "%s ", $0 }
+      else { print }
+    }')
+    # Secret-exposing gcx flags: they print raw credentials/tokens into
+    # logs and agent context.
+    if echo "$gcx_joined" | grep -qE -- '--(insecure-)?log-http-payload'; then
+      error "gcx '--insecure-log-http-payload' (formerly '--log-http-payload') logs raw credentials — debug with -v/-vv/-vvv instead"
+    fi
+    if echo "$gcx_joined" | grep -E 'gcx .*config view' | grep -q -- '--raw'; then
+      error "'gcx config view --raw' prints sensitive values — use the default redacted output"
+    fi
+    # Full command-table dumps: 'gcx commands' output is very large and
+    # goes stale; skills should use 'gcx help-tree <area>' for discovery.
+    # Only flags may sit between 'gcx' and 'commands' so ordinary prose
+    # ("gcx groups its commands ...") doesn't match.
+    if echo "$gcx_joined" | grep -qE 'gcx (--[a-z-]+ )*commands([^a-z-]|$)'; then
+      error "skills must not reference 'gcx commands' (huge output, goes stale) — use 'gcx help-tree <area>' instead"
+    fi
   fi
 
   # helm install / helm upgrade without --version
