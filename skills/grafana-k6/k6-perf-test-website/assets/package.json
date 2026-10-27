@@ -7,7 +7,7 @@
     "//record:wN-<short-name>": "node recordings/scripts/wN-<short-name>.js"
   },
   "devDependencies": {
-    "har-to-k6": "0.14.15",
+    "har-to-k6": "0.14.17",
     "playwright": "1.64.1"
   }
 }
