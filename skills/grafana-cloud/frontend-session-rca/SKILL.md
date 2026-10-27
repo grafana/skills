@@ -125,7 +125,7 @@ Ranked list. Each item:
 - What happened (exception type/message, HTTP status+URL, web vital or mobile cold/warm start / jank, …)
 - Lead-up: the 1–3 events immediately before it
 - `traceID` if that row has one (the id only — not a Tempo URL)
-- Session Replay at this timestamp — only web + `session_replay_start`; convert both times to ms, then `?t=` ([grafana-links.md](references/grafana-links.md)). Omit on mobile, if there is no recording, or if `t < 0`.
+- Session Replay at this timestamp — web and mobile, when metadata `session_replay_start` is present (that is gcx’s copy of `faro.session_recording.started`, not an event named `session_replay.start`). Convert both times to ms, then `?t=` ([grafana-links.md](references/grafana-links.md)). Render a clickable link labeled **Open session replay at this moment**. Omit if that metadata field is missing, or if `t < 0`. Do not omit only because the session is mobile. When the link can be built and the player URL returns HTTP 200, this link is required on every such row.
 
 ## Likely cause
 One or two sentences citing dump evidence. If several independent issues, say so — do not force a single root cause.
@@ -152,7 +152,7 @@ Do not offer “open this session in Frontend Observability” or “watch repla
 - After the user picks **impact**: query the **same store** as the session dump, same app id (in the query text, not as `--app`), and a time window. Loki UID → `gcx logs query -d <datasource_uid> '<logql>'`. Pinot UID → `gcx datasources pinot query -d <datasource_uid> '<sql>'`. Those commands have no `--app` flag. Do not invent Explore URLs. Do not state other-session counts until that query returns.
 - After the user picks **trace**: `gcx traces get -d <tempo_uid> <trace_id>` for that dump `traceID` only — not a new session-wide query. `-d` is required unless `datasources.tempo` is already in the gcx context. Tempo Explore URL only if the Tempo datasource UID is known; never guess UID or pane JSON.
 - Prefer the dump’s `rating` on web vitals over recomputing thresholds. On mobile, use startup/jank fields as present.
-- Do not claim session replay or video unless `faro.session_recording.started` / `session_replay_start` is in the dump.
+- Do not claim session replay or video unless metadata `session_replay_start` is set. That field is the timestamp of the Faro event `faro.session_recording.started`. It is not an event named `session_replay_start` or `session_replay.start`.
 - Do not write `gcx frontend sessions get` as something the Grafana UI runs. It is a gcx CLI command.
 
 ## References
