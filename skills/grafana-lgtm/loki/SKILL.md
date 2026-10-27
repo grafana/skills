@@ -259,6 +259,6 @@ Read path:  Query → Query Frontend → Querier → Ingester + Store (chunks)
 
 ## References
 
-- [LogQL Reference](references/logql.md)
-- [Configuration](references/configuration.md)
-- [Sending Data](references/send-data.md)
+- [LogQL Reference](https://grafana.com/docs/loki/latest/query/)
+- [Configuration](https://grafana.com/docs/loki/latest/configure/)
+- [Sending Data](https://grafana.com/docs/loki/latest/send-data/)
