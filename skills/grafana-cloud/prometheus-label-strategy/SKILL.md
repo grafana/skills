@@ -70,10 +70,10 @@ When auditing a label set, assess each label against these criteria.
 | `job` (Prometheus scrape job) | 5–50 values | ✅ Good |
 | `cluster`, `region` | Tens | ✅ Good |
 | `namespace` (K8s) | Tens–low hundreds | ✅ Acceptable |
-| `service`, `workload`, `container` | Tens–hundreds | ✅ Acceptable |
+| `service`, `container` | Tens–hundreds | ✅ Acceptable |
 | `instance` (host:port) | Hundreds–low thousands | ⚠️ Evaluate — fine on per-instance metrics, risky on aggregated ones |
 | `pod` (K8s) | Thousands + transient = high churn | ⚠️ Required for K8s monitoring and series uniqueness — keep it. If `pod`-level series are too expensive, reduce them with Adaptive Metrics; **never** drop at scrape |
-| `path` / `route` (HTTP) | Bounded if templated; unbounded if raw URLs | ⚠️ Only with templated values (`/users/:id`) |
+| `path` / `route` (HTTP) | Bounded if templated; unbounded if raw URLs | ⚠️ Only with templated values (`/users/:id`) — see [Templating HTTP path labels](#templating-http-path-labels) |
 | `version`, `image_tag`, `git_sha` | Grows on every deploy → churn | ⚠️ Use sparingly; consider info-metric pattern |
 | `user_id`, `request_id`, `trace_id` | Unbounded | ❌ Never as label — use exemplars |
 | `customer_id`, `tenant_id` | Often unbounded | ❌ Only acceptable for small fixed tenant counts |
@@ -85,6 +85,11 @@ For each label, ask:
 - Do queries on this metric reliably aggregate by or filter on this label?
 - Does this label logically segment the metric the way users think about it?
 - Would removing this label force users to use exemplars, logs, or traces instead — and would that be acceptable for the rare lookup case?
+
+When a label *fails* this test, there are two correct fixes (never a scrape-time drop — see [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)):
+
+- **Constant metadata** (`version`, `git_sha`, `az`, `region`) → factor out into an [info metric](#info-metric-pattern-for-high-churn-metadata).
+- **Genuinely unique, not needed at full resolution** (`pod`, `instance`) → aggregate away post-ingest with [Adaptive Metrics](#3-adaptive-metrics-grafana-cloud--post-ingest-the-safe-way-to-reduce-cardinality).
 
 ### Static vs. Dynamic Label Values
 
@@ -105,26 +110,45 @@ Every histogram metric multiplies its base cardinality by **(bucket count + 3)**
 - Default `prometheus.DefBuckets` has 11 buckets → **14× multiplier**
 - A histogram with `method`, `path`, `status` already at 1,000 series becomes **14,000 series** after adding histogram cardinality
 - **Always trim histogram label cardinality first** — labels matter 14× more on histograms than on counters/gauges
-- Consider native histograms (Prometheus 2.40+) which use a single sparse series instead of one-per-bucket — major cardinality reduction for high-resolution latency tracking
+- Consider native histograms (Prometheus 2.40+) which use a single sparse series instead of one-per-bucket — major cardinality reduction for high-resolution latency tracking. Two caveats: **(1)** client-library support is uneven — confirm your language's library (and version) implements them and how to opt in; **(2)** Grafana Cloud bills native histograms at **25% of their active bucket count**, not one active series per bucket — much cheaper than classic `_bucket` series, so factor that rate into savings estimates.
 
 ### Info-Metric Pattern (for high-churn metadata)
 
-When you want to *know* about a label (e.g., `version`, `git_sha`, `image_tag`) without paying for it on every metric, use an info metric:
+When you want to *know* about a label (e.g., `version`, `git_sha`, `image_tag`) without paying for it on every metric, use an info metric.
+
+The win is **bandwidth**: a metadata label whose value is fixed for a target's lifetime (`version`, `git_sha`, `az`, `region`) repeats the same string on every series and in every remote_write payload, scrape after scrape — bytes you pay for continuously to carry a value that never changes. An info metric factors that constant onto exactly one series. (For a static attribute you never join on, like `az`, cheaper still is to not emit it at all.)
+
+Use an info metric:
 
 ```
-# A single low-cardinality counter/gauge of value 1, with the metadata attached
-app_build_info{app="payment-api", version="2.4.1", git_sha="a1b2c3"} 1
+# A single low-cardinality gauge of value 1 per process, with the metadata attached
+app_build_info{job="api-server", instance="10.0.0.5:8080", version="2.4.1", git_sha="a1b2c3"} 1
 ```
 
 Then join at query time. The classic approach is a vector match with `group_left`:
 ```promql
 sum by (version) (
-  rate(http_requests_total{app="payment-api"}[5m])
-  * on (app) group_left (version) app_build_info
+  rate(http_requests_total{job="api-server"}[5m])
+  * on (instance) group_left (version) app_build_info
 )
 ```
 
-The `version` label lives on exactly one series per build, not on every metric.
+Join on `instance`, not `job`/`app`: each process runs exactly one build, so there's one `app_build_info` per `instance`. A coarser key breaks during rolling deploys — two versions live at once means multiple right-hand matches and `group_left` errors out. The `version` label lives on one series per process, not on every metric.
+
+#### The `info()` function (simpler join)
+
+PromQL's `info()` function (experimental, Prometheus 3.0+; enable with `--enable-feature=promql-experimental-functions`) automates the info-metric join so you don't have to hand-write the `* on (...) group_left (...)` match:
+
+```promql
+info(
+  rate(http_requests_total{job="api-server"}[5m]),
+  {version=~".+"}
+)
+```
+
+`info(v, [labelselector])` takes a range/instant vector `v` and, for each series, finds matching info metrics and adds their labels. The optional second argument is a label-matcher restricting which info labels are attached (here, only `version`). By default `info()` joins against the conventional `target_info` metric and matches on identifying labels (e.g. `instance`, `job`), so it's especially ergonomic for OpenTelemetry-style `target_info`. For custom info metrics like `app_build_info` the explicit `group_left` form above is still the most portable.
+
+Prefer `info()` when you're on Prometheus 3.x and joining against `target_info`; fall back to the explicit `group_left` match for older versions, custom info metrics, or when the experimental feature flag isn't enabled.
 
 #### The `info()` function (simpler join)
 
@@ -157,7 +181,7 @@ When auditing a label set, produce a report in this structure:
 | Metric Family | Label | Cardinality | Used in Queries? | Verdict | Action |
 |---|---|---|---|---|---|
 | http_requests_total | path | Unbounded (raw URLs) | Sometimes | ❌ Remove | Template in code: `/users/:id` not `/users/12345` |
-| http_requests_total | pod | High + churn | Rarely | ⚠️ Keep — makes the series unique | If too expensive, aggregate away with Adaptive Metrics; query by `workload` for the common case |
+| http_requests_total | pod | High + churn | Rarely | ⚠️ Keep — makes the series unique | If too expensive, aggregate away with Adaptive Metrics |
 
 ### Histogram-Specific Findings
 [Highlight any histograms with high label cardinality — these are 14×+ amplified]
@@ -172,7 +196,7 @@ When auditing a label set, produce a report in this structure:
 
 ### Implementation Plan
 1. [Code changes — instrumentation hygiene: stop emitting bad labels at the source]
-2. [Scrape target labels — relabel_configs (additive: env, cluster, team, workload)]
+2. [Scrape target labels — relabel_configs (additive: env, cluster, team)]
 3. [Post-ingest cost reduction on series you can't fix at the source — Adaptive Metrics]
 4. [Recording rules to materialize useful aggregates]
 ```
@@ -188,10 +212,10 @@ These should be set as **target labels** (via `relabel_configs` on the scrape jo
 | `job` | Prometheus scrape job name | Set automatically by Prometheus |
 | `instance` | Target endpoint (`host:port`) | Set automatically; rename via `relabel_configs` to a friendlier value if needed |
 | `env` | Environment (`prod`, `staging`, `dev`) | Set via static_configs labels or service discovery |
-| `cluster` | Multi-cluster differentiation | Critical for federation/Mimir multi-tenant |
+| `cluster` | Kubernetes cluster differentiation | Critical for telling series apart when you scrape multiple K8s clusters into one place |
 | `region` | Geographic region | |
 | `team` / `squad` | Ownership — also useful for access control | |
-| `service` | Logical service identity | One service may span multiple jobs |
+| `service.name` | Logical service identity | The OpenTelemetry resource attribute (`service.name`); one service may span multiple jobs. Prometheus stores it as `service_name` unless UTF-8 label names are enabled |
 
 These should **NOT** be re-emitted by the application. If the app emits a `cluster` label, it duplicates the target label and creates collisions / `honor_labels` decisions you don't want to make.
 
@@ -205,7 +229,6 @@ These should **NOT** be re-emitted by the application. If the app emits a `clust
 |---|---|---|
 | `namespace` | Pod metadata | Always keep |
 | `container` | Pod spec | Low cardinality, useful for multi-container pods |
-| `workload` | Derived: `{controller_kind}/{controller_name}` | Add as a stable aggregation key *alongside* `pod` — static, predictable. It's an addition, not a replacement: don't use it as an excuse to drop `pod` |
 | `service` | K8s Service | If scraping via Service |
 
 ### Handling the `pod` Label
@@ -213,13 +236,8 @@ These should **NOT** be re-emitted by the application. If the app emits a `clust
 `pod` is high-cardinality and transient — it rolls on every deploy and restart, so it dominates churn and series count. But it is also a label that **makes K8s series unique**, and Kubernetes monitoring (per-pod resource attribution, kube-state-metrics joins) depends on it. [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique) applies: **do not drop `pod` at scrape time.** Collapsing pods into one series mixes their counter resets and breaks `rate()`.
 
 Instead:
-- **Add `workload`** (`{controller_kind}/{controller_name}`) as a *target* label via `relabel_configs`, so dashboards and alerts can aggregate on the stable workload identity (`sum by (workload)`) without touching `pod`. This is additive — it removes nothing.
 - **Don't emit `pod` from application code** — let it come from Kubernetes service discovery, so there is exactly one source of truth (see below).
-- **If `pod`-level series are genuinely too expensive in Grafana Cloud**, reduce them with **Adaptive Metrics**, which aggregates `pod` away *correctly* (post-ingest, counter-reset-aware, reversible) rather than corrupting the raw data at scrape. Route to the `adaptive-metrics` skill.
-
-### Don't Map Ephemeral Fields into Labels in the First Place
-
-**`uid`** regenerates on every pod recreation and has no legitimate query use. The fix is to **never map it into a label** — leave it out of your `relabel_configs`. (It isn't in default `kubernetes_sd_configs` output unless you explicitly target it.) Don't try to `labeldrop` it after the fact — by then it's already distinguishing series, and removing it breaks the data exactly like dropping any other unique label.
+- **If `pod`-level series are genuinely too expensive in Grafana Cloud**, reduce them with Adaptive Metrics — see [Source-Side Prevention §3](#3-adaptive-metrics-grafana-cloud--post-ingest-the-safe-way-to-reduce-cardinality), where `pod` is the canonical example.
 
 ### One Source of Truth for Target Identity
 
@@ -232,9 +250,24 @@ Instead:
 
 ---
 
+## Relabeling with Alloy
+
+Collection-time fixes (setting target labels, dropping targets, removing duplicate labels) are configured in your collector. On Grafana Cloud the recommended collector is **[Grafana Alloy](https://grafana.com/docs/alloy/)**, so examples here use Alloy syntax rather than Prometheus YAML. The two map directly:
+
+| Prometheus YAML | Alloy component | When it runs |
+|---|---|---|
+| `relabel_configs` | `discovery.relabel` | *Before* the scrape — rewrites the target list |
+| `metric_relabel_configs` | `prometheus.relabel` | *After* the scrape — operates on scraped samples |
+
+Same primitives (`source_labels`, `regex`, `action`, `target_label`), expressed as repeated `rule { ... }` blocks. Typical pipeline: `discovery.kubernetes` → `discovery.relabel` → `prometheus.scrape` → `prometheus.remote_write`. [The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique) applies identically — a `prometheus.relabel` that drops a distinguishing label breaks the data just like `metric_relabel_configs`. For full configuration help, route to the **`alloy`** skill.
+
+> ⚠️ The upstream **[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)** is **not** Grafana-supported — Grafana Support covers Alloy (its distribution built on Collector components). If you run it, migrate to Alloy for Grafana Cloud. The principles are collector-agnostic either way: the Collector uses **processors** (`resource`/`attributes` to set/delete labels, `filter` to drop a metric), but deleting an identifying attribute breaks counter math exactly like a scrape-time `labeldrop`.
+
+---
+
 ## Source-Side Prevention: Where to Fix What
 
-There are five levers, in **order of preference**:
+There are four levers, in **order of preference**:
 
 ### 1. Fix in the Application (best)
 
@@ -246,31 +279,64 @@ Bad labels emitted by the app are the root cause. Examples:
 
 If you control the code, this is always the right fix. It saves cost on every downstream system (Prometheus, remote_write, Mimir, Grafana Cloud).
 
-### 2. `relabel_configs` (target-time relabeling)
+#### Templating HTTP path labels
 
-Runs *before* the scrape. Used to:
+The most common source-side blowup is recording the raw request path as a `path` (or `route`) label. Real URLs embed identifiers (user IDs, slugs, UUIDs), so the label is effectively unbounded — every distinct ID is a new series and the count never stabilizes. Record the *route template* (the matched routing pattern with parameters as placeholders) instead: this collapses millions of paths to one value per registered route while preserving the dimension dashboards care about — "which endpoint." Frameworks expose the matched template after routing (Express `req.route.path`, Flask `request.url_rule.rule`, Spring `bestMatchingPattern`, Go chi/gorilla patterns), so just record *it*. Do this at instrumentation time — you can't recover it later, since by then the series are already distinct ([The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)).
+
+```python
+# ❌ Unbounded: every distinct ID is a new series
+#    /users/12345, /users/12346, /orders/abc-987, ... → effectively infinite cardinality
+http_requests_total.labels(method="GET", path=request.path).inc()
+
+# ✅ Bounded: one series per registered route, regardless of traffic
+#    request.url_rule.rule == "/users/<int:user_id>"
+template = request.url_rule.rule if request.url_rule else "<unmatched>"
+http_requests_total.labels(method="GET", path=template).inc()
+```
+
+The resulting series set is small and stable:
+```
+http_requests_total{method="GET", path="/users/<int:user_id>"}   1043
+http_requests_total{method="POST", path="/orders"}                 87
+http_requests_total{method="GET", path="/orders/<order_id>"}      512
+```
+
+Note the `<unmatched>` fallback: unrouted requests (404s, scanners) must map to one bucket, not their raw path — otherwise unmatched traffic is its own unbounded source.
+
+### 2. Target relabeling (`discovery.relabel` in Alloy)
+
+Runs *before* the scrape — this is `relabel_configs` in classic Prometheus YAML (see [Relabeling with Alloy](#relabeling-with-alloy)). Used to:
 - Set target labels (`env`, `cluster`, `team`) on discovered targets
 - Drop entire targets you don't want to scrape
 - Rewrite `instance` to a friendly value
 - Add identity from service discovery metadata
 
-```yaml
-scrape_configs:
-  - job_name: my-app
-    kubernetes_sd_configs:
-      - role: pod
-    relabel_configs:
-      # Set workload from controller metadata
-      - source_labels: [__meta_kubernetes_pod_controller_kind, __meta_kubernetes_pod_controller_name]
-        target_label: workload
-        separator: /
-      # Set env from a pod label
-      - source_labels: [__meta_kubernetes_pod_label_env]
-        target_label: env
-      # Only scrape pods explicitly opted in
-      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-        regex: "true"
-        action: keep
+```alloy
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "pods" {
+  targets = discovery.kubernetes.pods.targets
+
+  // Set env from a pod label
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_env"]
+    target_label  = "env"
+  }
+
+  // Only scrape pods explicitly opted in
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+    regex         = "true"
+    action        = "keep"
+  }
+}
+
+prometheus.scrape "pods" {
+  targets    = discovery.relabel.pods.output
+  forward_to = [prometheus.remote_write.default.receiver]
+}
 ```
 
 ### 3. Adaptive Metrics (Grafana Cloud — post-ingest, the safe way to reduce cardinality)
@@ -283,6 +349,8 @@ It works *after* ingest, as aggregation rules applied in Grafana Cloud. Cruciall
 - It's reversible: drop a rule and the full-resolution series come back.
 
 This is the difference between "the data is now cheaper" (Adaptive Metrics) and "the data is now wrong" (`labeldrop` at scrape). Route the user to the `adaptive-metrics` skill for rule design.
+
+**The canonical case is the `pod` label** — high-cardinality and transient, but it makes K8s series unique, so it can never be dropped at scrape ([The One Rule](#the-one-rule-never-drop-a-label-that-makes-a-series-unique)). When `pod`-level series are too expensive, Adaptive Metrics aggregates `pod` away correctly instead of corrupting the raw data.
 
 ### 4. `metric_relabel_configs` (narrow, safe uses only)
 
@@ -303,22 +371,6 @@ The genuinely safe uses are:
 
 That's the whole list. If you're reaching for `metric_relabel_configs` to bring down a series count, you almost certainly want Adaptive Metrics instead.
 
-### 5. Recording Rules (query-time cardinality reduction)
-
-Pre-aggregate expensive series into a lower-cardinality recorded series. Stored at the same data point density but with far fewer series.
-
-```yaml
-groups:
-  - name: http-requests-aggregates
-    interval: 30s
-    rules:
-      # Drop pod/instance dimension; keep only service-level rollup
-      - record: service:http_requests:rate5m
-        expr: sum by (service, env, cluster, status_code) (rate(http_requests_total[5m]))
-```
-
-Queries that target the rollup are dramatically cheaper. The raw series still exist — recording rules don't reduce ingest cost (use **Adaptive Metrics** for that — *not* a scrape-time `labeldrop`). They reduce query cost.
-
 ---
 
 ## Instrumentation Hygiene (for app developers)
@@ -328,7 +380,7 @@ If the user is *writing* instrumentation code, these are the rules:
 | Rule | Why |
 |---|---|
 | Never use unbounded user input as a label value | `email`, `user_id`, `query string`, `error message` — they're the #1 cardinality bug |
-| Template HTTP paths before recording | `/users/{id}` not `/users/12345`. Most frameworks do this via routing metadata |
+| Template HTTP paths before recording | `/users/{id}` not `/users/12345`. Most frameworks do this via routing metadata — see [Templating HTTP path labels](#templating-http-path-labels) |
 | Bound error labels via small enums | `error_type="timeout"` not `error="connection to db-shard-7 timed out at 14:32:09"` |
 | Don't put `version` / `git_sha` / `build_id` on every metric | Use an info metric and join at query time |
 | Don't emit `pod` / `node` / `host` from code | Comes from scrape targets — duplicating creates collisions |
@@ -371,7 +423,7 @@ The most impactful improvements almost always come from these five changes:
 
 1. **Drop unbounded labels at the app layer** — `path` (untemplated), `user_id`, `error_message`. Single biggest win.
 2. **Trim histogram label cardinality before anything else** — 14× amplification on every histogram.
-3. **Don't emit `pod`/`instance`/`node` from application code** — let them come from scrape targets, and add a stable `workload` target label to aggregate on. (Never *drop* the real `pod` at scrape to cut cardinality — if `pod`-level series are too expensive, use Adaptive Metrics.)
+3. **Don't emit `pod`/`instance`/`node` from application code** — let them come from scrape targets. (Never *drop* the real `pod` at scrape to cut cardinality — if `pod`-level series are too expensive, use Adaptive Metrics.)
 4. **Use info metrics for `version` / `git_sha` / `image_tag`** — eliminates deploy-driven churn.
 5. **Set target labels via `relabel_configs`, not app code** — `env`, `cluster`, `team`, `service` should never be emitted by the application.
 
@@ -385,7 +437,7 @@ Focus on these before anything else.
 |---|---|---|
 | `user_id`, `customer_id` (large tenant base) | Unbounded | Exemplars; aggregate by `tenant_tier` |
 | `request_id`, `trace_id` | Unbounded | Exemplars |
-| `path` / `route` (raw URLs) | Unbounded | Template in code: `/users/:id` |
+| `path` / `route` (raw URLs) | Unbounded | Template in code: `/users/:id` — see [Templating HTTP path labels](#templating-http-path-labels) |
 | `error_message`, `query`, `sql` | Unbounded text | Bounded `error_type` enum |
 | `version`, `git_sha`, `image_tag` (on every metric) | Churn on every deploy | Info metric pattern |
 | App-emitted `pod` (duplicating SD) | Should come from K8s service discovery, not code | Stop emitting it in code; keep the discovered `pod`. Never drop the real `pod` to cut cardinality — use Adaptive Metrics |
