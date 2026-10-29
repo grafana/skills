@@ -342,6 +342,27 @@ A healthy first execution: `probe_success == 1` from every probe, all
 prebuilt dashboard (Synthetics → check → View dashboard) showing logs for each execution.
 Browser checks should additionally show `probe_browser_web_vital_*` series.
 
+### Queries and alert rules over SM metrics
+
+- **Where custom check labels live depends on the tenant's
+  [label migration](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/migrate-labels/)
+  state.** Check it first: if `sm_check_info` has `label_<name>` and `probe_success` has no
+  `<name>`, the tenant is *prefixed*.
+  - *Prefixed* (older tenants): labels exist only on `sm_check_info`, as `label_<name>`.
+    Join them in per target: `* on (instance) group_left (label_team) topk by (instance) (1,
+    max by (instance, label_team) (last_over_time(sm_check_info{job="...", label_team!=""}[10m])))`.
+    `topk` keeps the join one-to-one through a relabel; `last_over_time` keeps it through a
+    gap in `sm_check_info`. These queries stop matching when prefix support ends (estimated
+    March 2027); plan the migration rather than adding more of them.
+  - *Dual-write* or *un-prefixed* (new tenants start here): labels are on every check metric
+    as written, so filter `probe_success{team="..."}` directly, with no join.
+  - Either way, never parse a label out of the target URL: bare-IP targets carry none.
+- **Every check edit starts new series.** `job`, `instance`, `probe` and `config_version`
+  together identify a result, so after an edit one (instance, probe) has two series for up
+  to the query window. Aggregate `by (instance, probe)` before counting or averaging: `max`
+  for latency, `min` for success (so a failure before the edit stays visible), `sum` only
+  for sample counts. Removing a probe leaves its old series failing until they age out.
+
 **Rollback**: set the check's `enabled: false` (UI toggle, `gcx synthetic-monitoring
 checks update`, API update, or Terraform) to
 stop executions without losing history; delete the check only when you no longer need
