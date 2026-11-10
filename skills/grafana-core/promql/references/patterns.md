@@ -1,5 +1,7 @@
 # PromQL pattern library
 
+Modified 2026-10-11: clarify absence, CPU rate and histogram prerequisites; correct Alloy cardinality controls.
+
 ## Rate, counter, and aggregation
 
 ```promql
@@ -33,7 +35,8 @@ http_requests_total{env=~"staging|production"}
 
 ```promql
 sum(rate(http_requests_total[5m])) by (service)
-avg(node_cpu_seconds_total{mode="idle"}) by (instance)
+# Average idle CPU fraction across cores, per instance
+avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)
 
 # Top 5 by request rate
 topk(5, sum(rate(http_requests_total[5m])) by (service))
@@ -55,11 +58,11 @@ histogram_quantile(0.99,
 histogram_quantile(0.95,
   sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))
 
-# Native histograms (Prometheus 2.40+)
+# Native histogram samples must be exposed, ingested and queryable
 histogram_quantile(0.95, sum(rate(http_request_duration_seconds[5m])))
 ```
 
-Forgetting `by (le)` is the most common bug — `histogram_quantile` returns NaN or wrong values.
+For classic histograms, preserve `le` when aggregating buckets and verify the `+Inf` bucket. Native histograms use histogram samples rather than `le` series; verify exporter, ingestion and backend support for the deployed versions. Empty observations or malformed classic buckets can also produce NaN.
 
 ## Ratios and error rates
 
@@ -77,13 +80,18 @@ sum(rate(errors_total[5m]))
   / (sum(rate(requests_total[5m])) > 0)
 ```
 
+A missing error series is not automatically zero: verify instrumentation semantics before adding a zero fallback. A positive-denominator guard filters zero traffic; it does not invent missing numerator data.
+
 ## Absence and staleness
 
 ```promql
-absent(up{job="api"})                  # metric disappeared
-changes(up{job="api"}[5m]) == 0        # value not changing → stale exporter
+absent(up{job="api"})                  # no matching series now
+absent_over_time(up{job="api"}[5m])   # no matching samples in the window
+changes(up{job="api"}[5m]) == 0        # unchanged values, including healthy up=1
 count_over_time(up{job="api"}[5m]) > 0 # at least one sample in window
 ```
+
+These job-only absence checks fire only when the whole selected job has no data. To detect a particular missing target, select its expected `instance` or compare against an expected-target inventory. An unchanged `up` value does not establish exporter staleness.
 
 ## Time offsets
 
@@ -149,15 +157,26 @@ count(http_requests_total)
 count(count by (user_id)(http_requests_total))
 ```
 
-Drop a high-cardinality label at scrape time (Alloy):
+Fix unbounded labels at the instrumentation source. Dropping a distinguishing label does not aggregate samples and can collapse distinct counter series into the same label set. If a whole metric is unnecessary, drop it with a separate Alloy relabel stage after checking dependent queries and alerts:
 
 ```alloy
 prometheus.scrape "api" {
-  targets = [...]
-  rule { source_labels = ["user_id"]
-         action        = "labeldrop" }
+  targets    = [{"__address__" = "127.0.0.1:8080"}]
+  forward_to = [prometheus.relabel.api.receiver]
+}
+
+prometheus.relabel "api" {
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  rule {
+    source_labels = ["__name__"]
+    regex         = "unneeded_debug_metric"
+    action        = "drop"
+  }
 }
 ```
+
+This fragment requires a separately configured `prometheus.remote_write "default"` destination. `rule` belongs inside `prometheus.relabel`, not `prometheus.scrape`. If removing a proven redundant label, `labeldrop` matches label names using `regex`; `source_labels` does not select which label names it removes. Verify that the remaining labels still uniquely identify every series.
 
 ## Other common patterns
 

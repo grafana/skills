@@ -1,16 +1,18 @@
 ---
 name: promql
 license: Apache-2.0
-description: Write, validate, and optimize PromQL for Prometheus / Grafana Mimir / Grafana Cloud Metrics. Covers `rate` vs `irate` vs `increase`, label matchers and regex, `sum / avg / topk / by / without` aggregation, classic + native `histogram_quantile`, ratios with divide-by-zero guards, `absent` / `changes` for staleness, time offsets and `predict_linear`, recording-rule naming, SLO + burn-rate math, and a cardinality-hunting playbook. Use when writing a metric query, fixing wrong p95s, building an error-budget alert, debugging "query is slow", finding the noisy label that blew up cardinality, or migrating a dashboard query to a recording rule — even when the user says "calculate the error rate", "p99 latency", "sum by service", "why is this query slow", or "what's filling Mimir" without naming PromQL.
+description: Write, validate, and optimize PromQL for Prometheus / Grafana Mimir / Grafana Cloud Metrics. Covers `rate` vs `irate` vs `increase`, label matchers and regex, `sum / avg / topk / by / without` aggregation, classic + native `histogram_quantile`, ratios with divide-by-zero guards, absence checks and value-change detection, time offsets and `predict_linear`, recording-rule naming, SLO + burn-rate math, and a cardinality-hunting playbook. Use when writing a metric query, fixing wrong p95s, building an error-budget alert, debugging "query is slow", finding the noisy label that blew up cardinality, or migrating a dashboard query to a recording rule — even when the user says "calculate the error rate", "p99 latency", "sum by service", "why is this query slow", or "what's filling Mimir" without naming PromQL.
 ---
 
 # PromQL Query Patterns
 
+Modified 2026-10-11: clarify absence, query units, sample windows and cardinality troubleshooting.
+
 > **Docs**: https://prometheus.io/docs/prometheus/latest/querying/basics/
 
-PromQL returns either an **instant vector**, a **range vector**, or a **scalar**.
+PromQL expression types are **instant vector**, **range vector**, **scalar**, and **string**. Range-query roots support only scalars and instant vectors.
 
-**Golden rule:** `rate()` / `increase()` require a range vector ≥ 4× the scrape interval. 60s scrape → use `[5m]` minimum.
+`rate()` / `increase()` take range vectors. A window at least 4× the scrape interval is a reliability guideline for scrape timing and missed samples, not a language requirement. For a 60s scrape, `[5m]` is a useful starting point; inspect actual sample coverage and choose the window for the desired smoothing.
 
 ## Prerequisites
 
@@ -26,7 +28,7 @@ PromQL returns either an **instant vector**, a **range vector**, or a **scalar**
 #    and add basic auth (-u "<metrics_user>:<token>") to each curl below.
 PROM=http://localhost:9090   # or https://prometheus-prod-XX.grafana.net/api/prom
 
-# 1. Sketch the query — for "5xx error rate per service":
+# 1. Sketch the query — for "5xx requests per second per service":
 EXPR='sum(rate(http_requests_total{status_code=~"5.."}[5m])) by (service)'
 
 # 2. Validate syntax + that the metric/labels exist
@@ -54,7 +56,7 @@ histogram_quantile(0.95,
   sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))
 ```
 
-**Error rate with divide-by-zero guard:**
+**Error fraction with divide-by-zero guard:**
 
 ```promql
 sum(rate(http_requests_total{status_code=~"5.."}[5m]))
@@ -90,10 +92,10 @@ curl -sG --data-urlencode "query=job:http_request_duration_p95:rate5m" \
 
 ## Common bugs
 
-- `histogram_quantile` returns NaN → forgot `by (le)` in the inner aggregation
-- "No data" → check the metric exists (`/api/v1/series`) and the window ≥ 4× scrape interval
+- Classic `histogram_quantile` returns NaN → check that aggregation preserves `le`, buckets include `+Inf`, and observations exist. Native histogram queries do not require `le`.
+- "No data" → check selectors, recent sample coverage, scrape activity and response warnings. `/api/v1/series` lists matching historical series; it does not establish samples in the queried window.
 - Wrong rate magnitude → counter was aggregated before `rate()` (always `rate()` first)
-- Query timeout → series count too high; use `topk(...)` + a recording rule + drop high-cardinality labels (see [`references/patterns.md`](references/patterns.md))
+- Query timeout → inspect selector scope and series count; narrow selectors, evaluate recording rules, and fix unbounded instrumentation labels (see [`references/patterns.md`](references/patterns.md)). `topk` limits output series but still evaluates its input; removing distinguishing labels can collapse series.
 
 ## Resources
 
