@@ -135,18 +135,7 @@ curl https://yourstack.grafana.net/api/org \
 # 200 + org JSON → token works. Anything else → re-check role assignment in step 1.
 ```
 
-Provisioning equivalent (YAML, declarative):
-
-```yaml
-# provisioning/access-control/service_accounts.yaml
-apiVersion: 1
-serviceAccounts:
-  - name: alloy-writer
-    orgId: 1
-    role: Editor
-    tokens:
-      - name: alloy-token
-```
+To manage a Grafana Cloud stack's service accounts and tokens declaratively, use the Terraform resources `grafana_service_account` and `grafana_service_account_token` (provider setup in [references/terraform.md](references/terraform.md)).
 
 ## References
 

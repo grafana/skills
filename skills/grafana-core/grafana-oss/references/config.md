@@ -34,12 +34,11 @@ After changing these, restart Grafana and verify:
 ## Alerting
 
 ```ini
-[alerting]
-enabled = true
-
 [unified_alerting]
 enabled = true
 ```
+
+Never set `[alerting] enabled = true`: that key belongs to the legacy alerting removed in Grafana 11, and Grafana refuses to start while it is `true`.
 
 ## SMTP
 
@@ -79,7 +78,7 @@ admin_password = secret
 allow_embedding = true       # required for embedding dashboards in iframes
 ```
 
-`admin_password` is only consulted on first startup. To change later, use `grafana-cli admin reset-admin-password <new-password>`.
+`admin_password` is only consulted on first startup. To change it later, run `grafana cli admin reset-admin-password --password-from-stdin`, which reads the new password from stdin instead of the command line. Grafana 13 removed the `grafana-cli` binary (deb and rpm packages keep it only as a deprecated wrapper): use `grafana cli`.
 
 ## Feature toggles
 

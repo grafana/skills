@@ -36,7 +36,7 @@ description: Configure Grafana OSS — provisions dashboards from YAML, sets up 
 
 ### Creating a service account + token
 
-1. Provision via YAML or `POST /api/serviceaccounts` (full API in [references/api.md § Users + service accounts](references/api.md#users--service-accounts))
+1. Create it in **Administration → Users and access → Service accounts** or with `POST /api/serviceaccounts` (full API in [references/api.md § Users + service accounts](references/api.md#users--service-accounts))
 2. Mint a token via `POST /api/serviceaccounts/{id}/tokens`
 3. **Verify the token works**:
    ```bash
@@ -111,19 +111,7 @@ datasources:
 | **Admin** | Manage data sources, users, plugins |
 | **GrafanaAdmin** | Server-wide admin (superuser) |
 
-Service-account provisioning:
-
-```yaml
-# provisioning/access-control/service_accounts.yaml
-apiVersion: 1
-serviceAccounts:
-  - name: ci-reader
-    orgId: 1
-    role: Viewer
-    tokens:
-      - name: ci-token
-        # expires: optional ISO 8601 timestamp; omit for no-expiry tokens
-```
+Grafana's classic file provisioning does not create service accounts or their tokens: create them in the UI or through the API (see [§ Creating a service account + token](#creating-a-service-account--token)).
 
 (Custom RBAC roles with fine-grained permissions are Enterprise / Cloud only — see the `grafana-cloud/admin` skill if you need those.)
 

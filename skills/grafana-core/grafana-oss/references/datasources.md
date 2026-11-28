@@ -451,7 +451,7 @@ Place YAML files in the provisioning directory; Grafana loads on startup and wat
 
 Install additional data sources via:
 - **Connections > Add new connection** (search the plugin catalog)
-- `grafana-cli plugins install <plugin-id>`
+- `grafana cli plugins install <plugin-id>`
 - Docker: set `GF_INSTALL_PLUGINS` environment variable
 
 Popular plugin data sources:
